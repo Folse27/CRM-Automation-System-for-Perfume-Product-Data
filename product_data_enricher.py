@@ -848,62 +848,72 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     def find_fragrantica_url(product_name, brand, model):
         ALGOLIA_API_KEY = get_algolia_key()
-        if ALGOLIA_API_KEY:
-            url = f"https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/*/queries"
-
-            headers = {
-                "X-Algolia-Application-Id": ALGOLIA_APP_ID,
-                "X-Algolia-API-Key": ALGOLIA_API_KEY,
-                "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0",
-                "Referer": "https://www.fragrantica.ua/"
-            }
-
-            payload = {
-                "requests": [
-                    {
-                        "indexName": "fragrantica_perfumes",
-                        "query": product_name,
-                        "params": "hitsPerPage=5"
-                    }
-                ]
-            }
-
-            response = requests.post(url, headers=headers, json=payload)
-            print(response.status_code)
-            data = response.json()
-
-            hits = data["results"][0]["hits"]
-            print(len(hits))
-
-            if not hits:
-                return None
-            normalized_brand = ""
-        
-            if brand in FRAGRANTICA_BRANDS:
-                normalized_brand = normalize(FRAGRANTICA_BRANDS[brand])
-            else:
-                normalized_brand = normalize(brand)
-            tokens = re.sub(r"[’'`]", "", model.lower()).split()
-
-            for hit in hits:
-                hit_brand = normalize(hit.get("dizajner"))
-                hit_name = normalize(hit.get("naslov"))
-                print(normalized_brand, hit_brand, tokens, hit_name)
-
-                # Check both brand and model match
-                if normalized_brand == hit_brand and all(token in normalize(hit_name) for token in tokens):
-                    print("MATCHED BOTH")
-                    url_field = hit.get("url")
-
-                    if isinstance(url_field, dict):
-                        if "UK" in url_field and url_field["UK"]:
-                            return url_field["UK"][0]
-
-                        first_locale = next(iter(url_field.values()))
-                        return first_locale[0]
-
+        if not ALGOLIA_API_KEY:
+            print("No Algolia key found")
             return None
+            
+        url = f"https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/*/queries"
+
+        headers = {
+            "X-Algolia-Application-Id": ALGOLIA_APP_ID,
+            "X-Algolia-API-Key": ALGOLIA_API_KEY,
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://www.fragrantica.ua/"
+        }
+
+        payload = {
+            "requests": [
+                {
+                    "indexName": "fragrantica_perfumes",
+                    "query": product_name,
+                    "params": "hitsPerPage=5"
+                }
+            ]
+        }
+
+        response = requests.post(url, headers=headers, json=payload)
+        print("Algolia response status:", response.status_code)
+
+        try:
+            data = response.json()
+        except Exception as e:
+            print("Failed to parse JSON:", e)
+            return None
+    
+        if "results" not in data or not data["results"]:
+            print("No results key in Algolia response:", data)
+            return None
+    
+        hits = data["results"][0].get("hits", [])
+        if not hits:
+            return None
+        normalized_brand = ""
+    
+        if brand in FRAGRANTICA_BRANDS:
+            normalized_brand = normalize(FRAGRANTICA_BRANDS[brand])
+        else:
+            normalized_brand = normalize(brand)
+        tokens = re.sub(r"[’'`]", "", model.lower()).split()
+
+        for hit in hits:
+            hit_brand = normalize(hit.get("dizajner"))
+            hit_name = normalize(hit.get("naslov"))
+            print(normalized_brand, hit_brand, tokens, hit_name)
+
+            # Check both brand and model match
+            if normalized_brand == hit_brand and all(token in normalize(hit_name) for token in tokens):
+                print("MATCHED BOTH")
+                url_field = hit.get("url")
+
+                if isinstance(url_field, dict):
+                    if "UK" in url_field and url_field["UK"]:
+                        return url_field["UK"][0]
+
+                    first_locale = next(iter(url_field.values()))
+                    return first_locale[0]
+
+        return None
 
     exact_collection = ""
     brand = ""

@@ -840,22 +840,28 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     async def get_algolia_key():
         async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=True,
-                args=["--no-sandbox"]
-            )
+            browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
             page = await browser.new_page()
-            await page.goto("https://www.fragrantica.ua/")
+    
+            # Go to the page
+            await page.goto("https://www.fragrantica.ua/", wait_until="networkidle")
+    
+            # Wait a little extra to ensure JS rendered
+            await page.wait_for_timeout(2000)  # 2 seconds
     
             content = await page.content()
     
-            await browser.close()
-    
-            key_match = re.search(r'"apiKey":"(.*?)"', content)
+            # Updated regex: sometimes the key is in window.__algolia__
+            key_match = re.search(r'"apiKey"\s*:\s*"([^"]+)"', content)
             if key_match:
-                print(f"KEY: {key_match.group(1)}")
-                return key_match.group(1)
-
+                key = key_match.group(1)
+                print(f"Found Algolia KEY: {key}")
+                return key
+            else:
+                print("No Algolia key found in HTML. HTML snapshot saved for debugging.")
+                with open("debug_fragrantica.html", "w", encoding="utf-8") as f:
+                    f.write(content)
+                return None
 
     async def find_fragrantica_url(product_name, brand, model):
         ALGOLIA_API_KEY = await get_algolia_key()

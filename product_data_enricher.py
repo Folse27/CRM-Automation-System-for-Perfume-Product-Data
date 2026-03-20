@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from deep_translator import GoogleTranslator
 from html import unescape
 from telegram import Bot
+from dotenv import load_dotenv
 import requests
 import json
 import re
@@ -20,6 +21,8 @@ import html
 import os
 import unicodedata
 import asyncio
+
+load_dotenv("/etc/secrets/.env")
 
 scraper = cloudscraper.create_scraper()
 

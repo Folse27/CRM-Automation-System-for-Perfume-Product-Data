@@ -889,7 +889,6 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         }
 
         response = requests.post(url, headers=headers, json=payload)
-        await send_errors_to_telegram(response.status_code, BOT_TOKEN, TARGET_GROUP_ID, debug_message)
         print("Algolia response status:", response.status_code)
 
         try:

@@ -1,0 +1,7 @@
+playwright
+python-telegram-bot
+beautifulsoup4
+deep-translator
+python-dotenv
+requests
+cloudscraper

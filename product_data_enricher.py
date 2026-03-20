@@ -838,21 +838,21 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     async def get_algolia_key():
         async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox"]
-        )
-        page = await browser.new_page()
-        await page.goto("https://www.fragrantica.ua/")
-
-        content = await page.content()
-
-        await browser.close()
-
-        key_match = re.search(r'"apiKey":"(.*?)"', content)
-        if key_match:
-            print(f"KEY: {key_match.group(1)}")
-            return key_match.group(1)
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox"]
+            )
+            page = await browser.new_page()
+            await page.goto("https://www.fragrantica.ua/")
+    
+            content = await page.content()
+    
+            await browser.close()
+    
+            key_match = re.search(r'"apiKey":"(.*?)"', content)
+            if key_match:
+                print(f"KEY: {key_match.group(1)}")
+                return key_match.group(1)
 
 
     def find_fragrantica_url(product_name, brand, model):

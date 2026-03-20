@@ -49,7 +49,7 @@ PRODUCT_TYPE_TERMS = {
     "Дезодорант-спрей": ["deo-spray"],
 }
 
-PTT_2= {
+PTT_2 = {
     "Спрей": ["spray"]
 }
 
@@ -836,18 +836,23 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
             return cleaned_name, brand_found
 
-    def get_algolia_key():
+    async def get_algolia_key():
+        async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox"]
+        )
+        page = await browser.new_page()
+        await page.goto("https://www.fragrantica.ua/")
 
-        scraper = cloudscraper.create_scraper()
-        html = scraper.get("https://www.fragrantica.ua/").text
-        print("HTML length:", len(html))
+        content = await page.content()
 
-        key_match = re.search(r'[A-Za-z0-9+/]{80,}={0,2}', html)
+        await browser.close()
 
+        key_match = re.search(r'"apiKey":"(.*?)"', content)
         if key_match:
-            key = key_match.group()
-            print("KEY:", key)
-            return key
+            print(f"KEY: {key_match.group(1)}")
+            return key_match.group(1)
 
 
     def find_fragrantica_url(product_name, brand, model):

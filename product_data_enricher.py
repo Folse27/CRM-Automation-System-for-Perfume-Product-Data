@@ -839,31 +839,57 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
             return cleaned_name, brand_found
 
     async def get_algolia_key():
-        print("[DEBUG] Starting get_algolia_key (network intercept)")
-        
+        print("[DEBUG] Starting get_algolia_key")
+    
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=True,
                 args=["--no-sandbox", "--disable-setuid-sandbox"]
             )
+    
             page = await browser.new_page()
+    
+            # Set real browser headers (important!)
+            await page.set_extra_http_headers({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+            })
+    
             key_holder = {"key": None}
     
-            # Intercept requests
             def handle_request(request):
-                headers = request.headers
-                if "x-algolia-api-key" in headers:
-                    key_holder["key"] = headers["x-algolia-api-key"]
-                    print("[SUCCESS] FOUND ALGOLIA KEY:", key_holder["key"])
+                if "algolia.net" in request.url:
+                    headers = request.headers
+                    if "x-algolia-api-key" in headers:
+                        key_holder["key"] = headers["x-algolia-api-key"]
+                        print("[SUCCESS] FOUND KEY:", key_holder["key"])
     
             page.on("request", handle_request)
     
-            print("[DEBUG] Opening Fragrantica page...")
-            await page.goto("https://www.fragrantica.ua/", wait_until="networkidle")
+            print("[DEBUG] Going to page...")
     
-            # Wait until key is captured or timeout (max 15s)
-            for _ in range(30):
+            # ✅ DO NOT use networkidle
+            await page.goto(
+                "https://www.fragrantica.ua/",
+                wait_until="domcontentloaded",
+                timeout=60000
+            )
+    
+            print("[DEBUG] Page loaded")
+            await page.fill('input[type="search"]', 'dior')
+            await page.keyboard.press('Enter')
+    
+            # 👇 Force activity (IMPORTANT)
+            await page.mouse.move(100, 100)
+            await page.wait_for_timeout(1000)
+    
+            # 👇 Scroll to trigger JS requests
+            await page.evaluate("window.scrollBy(0, 1000)")
+            await page.wait_for_timeout(1000)
+    
+            # 👇 Wait up to 15 seconds for key
+            for i in range(30):
                 if key_holder["key"]:
+                    print(f"[DEBUG] Key found after {i * 0.5}s")
                     break
                 await asyncio.sleep(0.5)
     
@@ -871,10 +897,10 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
     
             if key_holder["key"]:
                 return key_holder["key"]
-            
-            print("[ERROR] No Algolia key found via network")
+    
+            print("[ERROR] Key not found")
             return None
-
+            
     async def find_fragrantica_url(product_name, brand, model):
         ALGOLIA_API_KEY = await get_algolia_key()
         if not ALGOLIA_API_KEY:

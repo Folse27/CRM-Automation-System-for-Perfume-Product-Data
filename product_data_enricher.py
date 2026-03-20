@@ -30,6 +30,7 @@ ALGOLIA_APP_ID = os.getenv("ALGOLIA_APP_ID")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 MANAGER_BOT_TOKEN = os.getenv("MANAGER_BOT_TOKEN")
 TARGET_GROUP_ID = os.getenv("TARGET_GROUP_ID")
+print(ALGOLIA_APP_ID, BOT_TOKEN, MANAGER_BOT_TOKEN, TARGET_GROUP_ID
 
 PRODUCT_TYPE_TERMS = {
     "Парфум": ["elixir de parfum", "extrait de parfum", "parfum"],

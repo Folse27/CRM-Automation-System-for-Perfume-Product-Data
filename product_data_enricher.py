@@ -857,7 +857,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
 
     def find_fragrantica_url(product_name, brand, model):
-        ALGOLIA_API_KEY = get_algolia_key()
+        ALGOLIA_API_KEY = await get_algolia_key()
         if not ALGOLIA_API_KEY:
             print("No Algolia key found")
             return None

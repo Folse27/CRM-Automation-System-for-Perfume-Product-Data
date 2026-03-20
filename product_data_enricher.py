@@ -839,10 +839,9 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
             return cleaned_name, brand_found
 
     async def get_algolia_key():
-        print("[DEBUG] Starting get_algolia_key")
+        print("[DEBUG] Starting get_algolia_key (network intercept)")
     
         async with async_playwright() as p:
-            print("[DEBUG] Launching browser...")
             browser = await p.chromium.launch(
                 headless=True,
                 args=["--no-sandbox", "--disable-setuid-sandbox"]
@@ -850,59 +849,29 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
     
             page = await browser.new_page()
     
-            try:
-                print("[DEBUG] Navigating to Fragrantica...")
+            key_holder = {"key": None}
     
-                await page.goto(
-                    "https://www.fragrantica.ua/",
-                    wait_until="domcontentloaded",
-                    timeout=60000
-                )
+            def handle_request(request):
+                headers = request.headers
     
-                print("[DEBUG] Page loaded (domcontentloaded)")
+                if "x-algolia-api-key" in headers:
+                    key_holder["key"] = headers["x-algolia-api-key"]
+                    print("[SUCCESS] FOUND ALGOLIA KEY:", key_holder["key"])
     
-            except Exception as e:
-                print("[ERROR] page.goto failed:", e)
-                await browser.close()
-                return None
+            page.on("request", handle_request)
     
-            # Extra wait for JS rendering
-            print("[DEBUG] Waiting for JS rendering...")
-            await page.wait_for_timeout(3000)
+            print("[DEBUG] Opening page...")
+            await page.goto("https://www.fragrantica.ua/", wait_until="domcontentloaded")
     
-            print("[DEBUG] Getting page content...")
-            content = await page.content()
-    
-            print(f"[DEBUG] HTML length: {len(content)}")
-    
-            # Try multiple patterns
-            patterns = [
-                r'"apiKey"\s*:\s*"([^"]+)"',
-                r'algoliaApiKey\s*:\s*"([^"]+)"',
-                r'__ALGOLIA__.*?apiKey\s*:\s*"([^"]+)"'
-            ]
-    
-            for i, pattern in enumerate(patterns):
-                print(f"[DEBUG] Trying regex pattern {i}: {pattern}")
-                match = re.search(pattern, content)
-    
-                if match:
-                    key = match.group(1)
-                    print(f"[SUCCESS] FOUND ALGOLIA KEY: {key}")
-                    await browser.close()
-                    return key
-    
-            print("[WARNING] No Algolia key found in HTML")
-    
-            # Save debug file
-            try:
-                with open("debug_fragrantica.html", "w", encoding="utf-8") as f:
-                    f.write(content)
-                print("[DEBUG] Saved HTML to debug_fragrantica.html")
-            except Exception as e:
-                print("[ERROR] Failed to save debug HTML:", e)
+            # Wait a bit so requests fire
+            await page.wait_for_timeout(5000)
     
             await browser.close()
+    
+            if key_holder["key"]:
+                return key_holder["key"]
+    
+            print("[ERROR] No Algolia key found via network")
             return None
 
     async def find_fragrantica_url(product_name, brand, model):

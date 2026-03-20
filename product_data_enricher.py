@@ -10,8 +10,6 @@ import os
 import unicodedata
 import asyncio
 
-load_dotenv()
-
 scraper = cloudscraper.create_scraper()
 
 ALGOLIA_APP_ID = os.getenv("ALGOLIA_APP_ID")

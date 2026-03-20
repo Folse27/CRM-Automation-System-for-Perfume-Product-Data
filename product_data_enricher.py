@@ -596,7 +596,7 @@ UKR_TO_RU = {
 
 KEEPIN_BASE = "https://api.keepincrm.com/v1"
 
-def keepin_headers() -> Dict[str, str]:
+def keepin_headers():
         return {"X-Auth-Token": os.getenv("CRM_AUTH_TOKEN"), "Accept": "application/json"}
 
 async def send_errors_to_telegram(errors, bot_token, chat_id, debug):

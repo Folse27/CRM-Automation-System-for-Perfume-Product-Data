@@ -1,3 +1,4 @@
+print("SCRIPT STARTED")
 from playwright.async_api import async_playwright
 from urllib.parse import quote
 from urllib.parse import quote_plus

@@ -840,37 +840,38 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     async def get_algolia_key():
         print("[DEBUG] Starting get_algolia_key (network intercept)")
-    
+        
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=True,
                 args=["--no-sandbox", "--disable-setuid-sandbox"]
             )
-    
             page = await browser.new_page()
-    
             key_holder = {"key": None}
     
+            # Intercept requests
             def handle_request(request):
                 headers = request.headers
-    
                 if "x-algolia-api-key" in headers:
                     key_holder["key"] = headers["x-algolia-api-key"]
                     print("[SUCCESS] FOUND ALGOLIA KEY:", key_holder["key"])
     
             page.on("request", handle_request)
     
-            print("[DEBUG] Opening page...")
-            await page.goto("https://www.fragrantica.ua/", wait_until="domcontentloaded")
+            print("[DEBUG] Opening Fragrantica page...")
+            await page.goto("https://www.fragrantica.ua/", wait_until="networkidle")
     
-            # Wait a bit so requests fire
-            await page.wait_for_timeout(5000)
+            # Wait until key is captured or timeout (max 15s)
+            for _ in range(30):
+                if key_holder["key"]:
+                    break
+                await asyncio.sleep(0.5)
     
             await browser.close()
     
             if key_holder["key"]:
                 return key_holder["key"]
-    
+            
             print("[ERROR] No Algolia key found via network")
             return None
 

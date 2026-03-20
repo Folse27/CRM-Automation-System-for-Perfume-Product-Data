@@ -1153,7 +1153,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     print(f"FRAGRANTICA{fragrantica_url}")
     if search_name and not fragrantica_url:
-        fragrantica_url = await find_fragrantica_url(search_name, brand, exact_collection)
+        fragrantica_url = find_fragrantica_url(search_name, brand, exact_collection)
 
     if fragrantica_url:
         debug_message.append(f"fragrantica url: {fragrantica_url}")

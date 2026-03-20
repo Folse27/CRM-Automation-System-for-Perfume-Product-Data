@@ -11,6 +11,7 @@ from deep_translator import GoogleTranslator
 from html import unescape
 from telegram import Bot
 from dotenv import load_dotenv
+import httpx
 import requests
 import json
 import re
@@ -856,7 +857,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 return key_match.group(1)
 
 
-    def find_fragrantica_url(product_name, brand, model):
+    async def find_fragrantica_url(product_name, brand, model):
         ALGOLIA_API_KEY = await get_algolia_key()
         if not ALGOLIA_API_KEY:
             print("No Algolia key found")
@@ -882,7 +883,8 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
             ]
         }
 
-        response = requests.post(url, headers=headers, json=payload)
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload)
         print("Algolia response status:", response.status_code)
 
         try:
@@ -1147,7 +1149,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     print(f"FRAGRANTICA{fragrantica_url}")
     if search_name and not fragrantica_url:
-        fragrantica_url = find_fragrantica_url(search_name, brand, exact_collection)
+        fragrantica_url = await find_fragrantica_url(search_name, brand, exact_collection)
 
     if fragrantica_url:
         debug_message.append(f"fragrantica url: {fragrantica_url}")

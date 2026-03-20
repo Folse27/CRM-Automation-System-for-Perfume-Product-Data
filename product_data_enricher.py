@@ -838,32 +838,24 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
             return cleaned_name, brand_found
 
-    def get_algolia_key():
-        scraper = cloudscraper.create_scraper(
-            browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
-        )
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Referer': 'https://www.google.com/',
-        }
-        html = scraper.get("https://www.fragrantica.ua/", headers=headers).text
-        print("HTML length:", len(html))
+    async def get_algolia_key():
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            await stealth_async(page)
+            await page.goto("https://www.fragrantica.ua/", wait_until="networkidle", timeout=30000)
+            html = await page.content()
+            await browser.close()
     
-        # More specific pattern — adjust based on actual key location in HTML
+        print("HTML length:", len(html))
         key_match = re.search(r'["\']apiKey["\']\s*:\s*["\']([A-Za-z0-9]{20,50})["\']', html)
         if key_match:
-            key = key_match.group(1)
-            print("KEY:", key)
-            return key
-        
-        # Debug: print a snippet to see what you're actually getting
-        print("Key not found. HTML snippet:", html[:2000])
+            return key_match.group(1)
+        print("Snippet:", html[:1000])
         return None
             
-    def find_fragrantica_url(product_name, brand, model):
-        ALGOLIA_API_KEY = get_algolia_key()
+    async def find_fragrantica_url(product_name, brand, model):
+        ALGOLIA_API_KEY = await get_algolia_key()
         if not ALGOLIA_API_KEY:
             print("No Algolia key found")
             return None
@@ -888,7 +880,8 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
             ]
         }
 
-        response = requests.post(url, headers=headers, json=payload)
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload)
         print("Algolia response status:", response.status_code)
 
         try:
@@ -1153,7 +1146,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     print(f"FRAGRANTICA{fragrantica_url}")
     if search_name and not fragrantica_url:
-        fragrantica_url = find_fragrantica_url(search_name, brand, exact_collection)
+        fragrantica_url = await find_fragrantica_url(search_name, brand, exact_collection)
 
     if fragrantica_url:
         debug_message.append(f"fragrantica url: {fragrantica_url}")

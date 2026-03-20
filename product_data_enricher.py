@@ -1,3 +1,14 @@
+from playwright.async_api import async_playwright
+from urllib.parse import quote
+from urllib.parse import quote_plus
+from urllib.parse import urlparse, urlunparse
+from telegram import Update
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+from difflib import SequenceMatcher
+from bs4 import BeautifulSoup
+from deep_translator import GoogleTranslator
+from html import unescape
+from telegram import Bot
 import requests
 import json
 import re

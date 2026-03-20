@@ -1166,7 +1166,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
     print(url)
     if url:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
             page = await browser.new_page()
             await page.goto(url, timeout=15000)  # adjust timeout as needed
             await asyncio.sleep(5)
@@ -1179,7 +1179,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     if RU_url:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
             page = await browser.new_page()
             await page.goto(RU_url, timeout=15000)  # adjust timeout as needed
             await asyncio.sleep(5)
@@ -1196,7 +1196,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         if fragrantica_response:
             fragrantica_soup = BeautifulSoup(fragrantica_response.text, "html.parser")
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)  # start with GUI to debug
+            browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])  # start with GUI to debug
             page = await browser.new_page(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
                 viewport={"width": 1280, "height": 800}
@@ -1420,7 +1420,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     if randewoo_url:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
             page = await browser.new_page()
                 
             # Navigate and wait for network idle
@@ -1529,21 +1529,21 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                     errors.append("Не вдалося визначити ua опис з makeup.ua та не вдалося перекласти опис з ru на ua")
 
         if data.get("opisaniie_ua_1469370") and data["opisaniie_ua_1469370"] and not FOUND_RU_DESC:
-                try:
-                    translated_text = GoogleTranslator(
-                        source='uk',
-                        target='ru'
-                    ).translate(data["opisaniie_ua_1469370"]).strip()
+            try:
+                translated_text = GoogleTranslator(
+                    source='uk',
+                    target='ru'
+                ).translate(data["opisaniie_ua_1469370"]).strip()
 
-                    if translated_text:
-                        data["opisaniie_ru_1469371"] = ''.join(
-                        f'<p>{p.strip()}</p>'
-                        for p in translated_text.split('\n\n')
-                        if p.strip()
-                        )
+                if translated_text:
+                    data["opisaniie_ru_1469371"] = ''.join(
+                    f'<p>{p.strip()}</p>'
+                    for p in translated_text.split('\n\n')
+                    if p.strip()
+                    )
 
-                except Exception:
-                    errors.append("Не вдалося перекласти опис з ua на ru")
+            except Exception:
+                errors.append("Не вдалося перекласти опис з ua на ru")
 
     custom_fields_array = [{"name": k, "value": str(v)} for k, v in data.items() if v is not None]
     print(custom_fields_array)
@@ -1599,9 +1599,9 @@ def get_material_by_id(identifier):
         return {}  # safe fallback
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
-        errors_from_run, debug_message = await main_func(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url)
-        if errors_from_run:
-            await send_errors_to_telegram(errors_from_run, BOT_TOKEN, TARGET_GROUP_ID, debug_message)
+    errors_from_run, debug_message = await main_func(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url)
+    if errors_from_run:
+        await send_errors_to_telegram(errors_from_run, BOT_TOKEN, TARGET_GROUP_ID, debug_message)
 
 async def process_category(category_id, target_id):
     material_data = get_materials(category_id)
@@ -1661,42 +1661,59 @@ async def trigger_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         asyncio.create_task(action_manual_urls(product, identifier, makeup_url, fragrantica_url, randewoo_url))
 
 async def action_standart(category):
-    if category == "1":
-        await process_category(1443408, 403)
-    elif category == "2":
-        await process_category(1464022, 404)
-    else:
-        await process_category(1443408, 403)
-        await process_category(1464022, 404)
+    try:
+        if category == "1":
+            await process_category(1443408, 403)
+        elif category == "2":
+            await process_category(1464022, 404)
+        else:
+            await process_category(1443408, 403)
+            await process_category(1464022, 404)
+    
+        print("Standart process finished")
 
-    print("Standart process finished")
+    except Exception as e:
+        print("CRASH in action_standart:", e)
+        import traceback
+        traceback.print_exc()
     
 async def action_manual_urls(product, identifier, makeup_url, fragrantica_url, randewoo_url):
+    try:
         material = get_material_by_id(int(identifier))
         price = material.get("price")
         sku = material.get("sku")
         target_id = None
         if material.get("category_id") == 401:
-                target_id = 403
+            target_id = 403
         elif material.get("category_id") == 402:
-                target_id = 404
+            target_id = 404
         print(material.get("category_id"), target_id)
         if product:
-                await run_main(product, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url)
+            await run_main(product, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url)
         else:
-                await run_main(material.get("title"), price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url)
+            await run_main(material.get("title"), price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url
+                              )
+    except Exception as e:
+        print("CRASH in action_manual_urls:", e)
+        import traceback
+        traceback.print_exc()
 
 async def action_manual_name_and_id(product, identifier):
+    try:
         material = get_material_by_id(int(identifier))
         price = material.get("price")
         sku = material.get("sku")
         target_id = None
         if material.get("category_id") == 401:
-                target_id = 403
+            target_id = 403
         elif material.get("category_id") == 402:
-                target_id = 404
+            target_id = 404
         print(material.get("category_id"), target_id)
         await run_main(product, price, sku, identifier, target_id, None, None, None)
+    except Exception as e:
+        print("CRASH in action_manual_name_and_id:", e)
+        import traceback
+        traceback.print_exc()
 
 
 def start_manager_bot():

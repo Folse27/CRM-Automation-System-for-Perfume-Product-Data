@@ -845,7 +845,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            await stealth_async(page)
+            await Stealth(page)
             await page.goto("https://www.fragrantica.ua/", wait_until="networkidle", timeout=30000)
             html = await page.content()
             await browser.close()

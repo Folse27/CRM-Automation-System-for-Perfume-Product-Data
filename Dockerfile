@@ -7,6 +7,8 @@ COPY . .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+RUN playwright install chromium
+RUN playwright install-deps chromium
 
 # (Optional) ensure env file path exists
 RUN mkdir -p /etc/secrets

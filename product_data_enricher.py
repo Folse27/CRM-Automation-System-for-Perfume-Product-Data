@@ -1639,7 +1639,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 errors.append("Не вдалося перекласти опис з ua на ru")
 
     custom_fields_array = [{"name": k, "value": str(v)} for k, v in data.items() if v is not None]
-    close_browser()
+    await close_browser()
     print(custom_fields_array)
     print(json.dumps(data, ensure_ascii=False, indent=4))
     def update_material(update_data):

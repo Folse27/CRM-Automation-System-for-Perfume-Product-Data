@@ -908,8 +908,6 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
             ALGOLIA_API_KEY = creds["api_key"]
         else:
             print("Failed to extract Algolia credentials")
-        if not ALGOLIA_API_KEY:
-            print("No Algolia key found")
             return None
             
         url = f"https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/*/queries"

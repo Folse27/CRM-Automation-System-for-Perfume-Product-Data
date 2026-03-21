@@ -1293,7 +1293,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 #viewport={"width": 1280, "height": 800}
             #)
             page = await browser.new_page()
-            await page.set_extra_http_headers({"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"})
+            await page.set_extra_http_headers({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"})
             try:
                 await page.goto(fragrantica_url)
                 await page.wait_for_function("""

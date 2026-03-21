@@ -1279,78 +1279,62 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     if fragrantica_url:
         print(fragrantica_url)
-        #fragrantica_response = scraper.get(fragrantica_url)
-        #if fragrantica_response:
-            #fragrantica_soup = BeautifulSoup(fragrantica_response.text, "html.parser")
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])  # start with GUI to debug
-            page = await browser.new_page(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
-                viewport={"width": 1280, "height": 800}
-            )
-
+        browser = await get_browser()
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+            viewport={"width": 1280, "height": 800}
+        )
+        page = await context.new_page()
+        try:
             await page.goto(fragrantica_url)
-
-            # wait until JS populates ratings
             await page.wait_for_function("""
             () => {
                 const cards = document.querySelectorAll('.tw-rating-card > div');
                 return cards.length > 0;
             }""", timeout=30000)
-            
+    
             def parse_number(text):
                 text = text.lower().replace(',', '').strip()
                 if 'k' in text:
                     return int(float(text.replace('k','')) * 1000)
                 return int(text)
-
+    
             cards = await page.query_selector_all('.tw-rating-card .flex.flex-col')
             print("Number of rating cards found:", len(cards))
-
+    
             ratings_debug = await page.evaluate("""
             () => {
                 const seasons = ['зима', 'весна', 'літо', 'осінь'];
                 const result = [];
-
                 document.querySelectorAll('span.font-medium').forEach(labelSpan => {
                     const label = labelSpan.innerText.trim().toLowerCase();
                     if (seasons.includes(label)) {
-                        const parentDiv = labelSpan.closest('div'); // find the card wrapper
+                        const parentDiv = labelSpan.closest('div');
                         if (!parentDiv) return;
-
                         const valueSpan = parentDiv.querySelector('span.block.font-semibold');
                         const barDiv = parentDiv.querySelector('div[style*="width"]');
-
                         const value = valueSpan ? parseInt(valueSpan.innerText.trim()) : null;
                         const width = barDiv ? parseFloat(barDiv.style.width.replace("%","")) : null;
-
                         result.push({label, value, width});
                     }
                 });
-
                 return result;
             }
             """)
-            
+    
             print("Ratings debug info:", ratings_debug)
-
             ratings = {r['label']: r['width'] for r in ratings_debug}
-
             if ratings:
-                # Map short labels to full season names
                 season_priority = [
                     ('осінь', 'Осінні аромати'),
                     ('літо', 'Літні аромати'),
                     ('зима', 'Зимові аромати'),
                     ('весна', 'Весняні аромати')
                 ]
-
-                # Only include seasons with width >= 50%
                 ratings_over_50 = ", ".join(
                     full_label for key, full_label in season_priority
                     if key in ratings and ratings[key] >= 50
                 )
-
                 print("Filtered Ratings:", ratings)
                 if ratings_over_50:
                     print("Seasons with ≥50% width:", ratings_over_50)
@@ -1359,7 +1343,12 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                     errors.append("Не вдалося знайти сезони з шириною ≥50%")
             else:
                 errors.append("Не вдалося знайти рейтинги")
-            await browser.close()
+    
+        except Exception as e:
+            print(f"[ERROR] Ratings scrape failed: {e}")
+            errors.append("Не вдалося отримати рейтинги з fragrantica.ua")
+        finally:
+            await context.close()  # close context, not browser
     else:
         errors.append("Не вдалося знайти fragrantica.ua url")
     

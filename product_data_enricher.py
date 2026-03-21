@@ -1238,41 +1238,27 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         fragrantica_soup = ""
         print(url)
         if url:
-            browser = await get_browser()
-            page = await browser.new_page()
-            await page.route("**/*", lambda route: route.abort()
-                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
-                else route.continue_()
-            )
-            try:
-                await page.goto(url, timeout=15000)
-                await asyncio.sleep(3)
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
+                page = await browser.new_page()
+                await page.goto(url, timeout=15000)  # adjust timeout as needed
+                await asyncio.sleep(5)
                 html = await page.content()
+                await browser.close()
                 soup = BeautifulSoup(html, "html.parser")
-            except Exception as e:
-                print(f"[ERROR] Failed to fetch makeup UA url: {e}")
-            finally:
-                await page.close()
     
         if soup:      
             container = soup.select_one(".tabs-content")
     
         if RU_url:
-            browser = await get_browser()
-            page = await browser.new_page()
-            await page.route("**/*", lambda route: route.abort()
-                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
-                else route.continue_()
-            )
-            try:
-                await page.goto(RU_url, timeout=15000)
-                await asyncio.sleep(3)
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
+                page = await browser.new_page()
+                await page.goto(RU_url, timeout=15000)  # adjust timeout as needed
+                await asyncio.sleep(5)
                 html = await page.content()
+                await browser.close()
                 RU_soup = BeautifulSoup(html, "html.parser")
-            except Exception as e:
-                print(f"[ERROR] Failed to fetch makeup RU url: {e}")
-            finally:
-                await page.close()
     
         if RU_soup:
             RU_container = RU_soup.select_one(".tabs-content")

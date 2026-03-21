@@ -1,6 +1,6 @@
 print("SCRIPT STARTED")
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
 from urllib.parse import quote
 from urllib.parse import quote_plus
 from urllib.parse import urlparse, urlunparse
@@ -12,6 +12,8 @@ from deep_translator import GoogleTranslator
 from html import unescape
 from telegram import Bot
 from dotenv import load_dotenv
+import playwright_stealth
+print(dir(playwright_stealth))
 import httpx
 import requests
 import json

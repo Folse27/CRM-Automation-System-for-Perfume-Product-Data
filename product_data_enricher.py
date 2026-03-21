@@ -843,7 +843,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
     async def get_algolia_key():
         async with async_playwright() as p:
-           browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             await Stealth().apply_stealth_async(page)
             await page.goto("https://www.fragrantica.ua/", wait_until="domcontentloaded", timeout=30000)

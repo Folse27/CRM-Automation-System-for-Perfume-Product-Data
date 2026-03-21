@@ -877,14 +877,8 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
             result = {}
             got_key = asyncio.Event()
         
-            context = await browser.new_context(
-                user_agent=(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/122.0.0.0 Safari/537.36"
-                )
-            )
-            page = await context.new_page()
+            page = await browser.new_page()
+            await page.set_extra_http_headers({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"})
         
             async def handle_response(response):
                 if "algolia.net" in response.url and "queries" in response.url:
@@ -914,7 +908,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                         await goto_task
                     except (asyncio.CancelledError, Exception):
                         pass  # expected — we cancelled it
-                await context.close()
+                await page.close()
         
             return result if result else None
                 
@@ -1238,27 +1232,41 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         fragrantica_soup = ""
         print(url)
         if url:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
-                page = await browser.new_page()
-                await page.goto(url, timeout=15000)  # adjust timeout as needed
-                await asyncio.sleep(5)
+            browser = await get_browser()
+            page = await _browser.new_page()
+            await page.route("**/*", lambda route: route.abort()
+                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
+                else route.continue_()
+            )
+            try:
+                await page.goto(url, timeout=15000)
+                await asyncio.sleep(3)
                 html = await page.content()
-                await browser.close()
                 soup = BeautifulSoup(html, "html.parser")
+            except Exception as e:
+                print(f"[ERROR] Failed to fetch makeup UA url: {e}")
+            finally:
+                await page.close()
     
         if soup:      
             container = soup.select_one(".tabs-content")
     
         if RU_url:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
-                page = await browser.new_page()
-                await page.goto(RU_url, timeout=15000)  # adjust timeout as needed
-                await asyncio.sleep(5)
+            _browser = await get_browser()
+            page = await _browser.new_page()
+            await page.route("**/*", lambda route: route.abort()
+                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
+                else route.continue_()
+            )
+            try:
+                await page.goto(RU_url, timeout=15000)
+                await asyncio.sleep(3)
                 html = await page.content()
-                await browser.close()
                 RU_soup = BeautifulSoup(html, "html.parser")
+            except Exception as e:
+                print(f"[ERROR] Failed to fetch makeup RU url: {e}")
+            finally:
+                await page.close()
     
         if RU_soup:
             RU_container = RU_soup.select_one(".tabs-content")

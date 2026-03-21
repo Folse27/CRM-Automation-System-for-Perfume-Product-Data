@@ -12,6 +12,7 @@ from telegram import Bot
 from dotenv import load_dotenv
 import playwright_stealth
 print(dir(playwright_stealth))
+import gc
 import httpx
 import requests
 import json
@@ -601,18 +602,26 @@ _playwright = None
 _browser_lock = asyncio.Lock()
 
 async def get_browser() -> Browser:
-    """Returns a shared browser instance, creating it if needed."""
     global _browser, _playwright
-
     async with _browser_lock:
         if _browser is None or not _browser.is_connected():
-            print("[BROWSER] Launching new browser instance...")
             _playwright = await async_playwright().start()
             _browser = await _playwright.chromium.launch(
                 headless=True,
-                args=["--no-sandbox", "--disable-setuid-sandbox"]
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--single-process",
+                    "--no-zygote",
+                    "--disable-extensions",
+                    "--disable-background-networking",
+                    "--disable-default-apps",
+                    "--mute-audio",
+                    "--no-first-run",
+                ]
             )
-            print("[BROWSER] Browser ready")
     return _browser
 
 async def close_browser():
@@ -1261,11 +1270,15 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
             RU_container = RU_soup.select_one(".tabs-content")
     
         async def get_fragrantica_page(url: str) -> BeautifulSoup | None:
-            browser = await get_browser()  # gets same shared instance
-            context = await browser.new_context(user_agent="Mozilla/5.0 ...")
-            page = await context.new_page()
+            browser = await get_browser()
+            page = await browser.new_page()
+            await page.set_extra_http_headers({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"})
             await page.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+            )
+            await page.route("**/*", lambda route: route.abort()
+                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
+                else route.continue_()
             )
             try:
                 await page.goto(url, wait_until="domcontentloaded", timeout=60000)
@@ -1276,16 +1289,17 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 print(f"[ERROR] Failed to fetch {url}: {e}")
                 return None
             finally:
-                await context.close()
+                await page.close()  # close page, not context
     
         if fragrantica_url:
             print(fragrantica_url)
             browser = await get_browser()
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
-                viewport={"width": 1280, "height": 800}
-            )
-            page = await context.new_page()
+            #context = await browser.new_context(
+                #user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+                #viewport={"width": 1280, "height": 800}
+            #)
+            page = await browser.new_page()
+            await page.set_extra_http_headers({"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"})
             try:
                 await page.goto(fragrantica_url)
                 await page.wait_for_function("""
@@ -1349,7 +1363,8 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 print(f"[ERROR] Ratings scrape failed: {e}")
                 errors.append("Не вдалося отримати рейтинги з fragrantica.ua")
             finally:
-                await context.close()  # close context, not browser
+                await page.close()
+                #await context.close()  # close context, not browser
         else:
             errors.append("Не вдалося знайти fragrantica.ua url")
         
@@ -1706,6 +1721,8 @@ async def process_category(category_id, target_id):
                 print(material.get("category_id"))
                 print(material.get("category"))
                 await run_main(title, price, sku, identifier, target_id, None, None, None)
+                gc.collect()
+                await asyncio.sleep(0.5)
 
         except Exception as e:
             print(f"Error processing material {material.get('id')}: {e}")

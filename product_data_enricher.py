@@ -769,111 +769,117 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         return None
 
     def clean_perfume_name(material_name: str):
-            original = material_name.strip()
-            material_name_upper = original.upper()
-            brand_found = None
+        original = material_name.strip()
+        material_name_upper = original.upper()
+        brand_found = None
 
-            # 1️⃣ Remove brand at the start
-            for brand, aliases in PERFUME_BRANDS.items():
-                all_keys = [brand.upper()] + [alias.upper() for alias in aliases]
-                for key in all_keys:
-                    if material_name_upper.startswith(key):
-                        brand_found = brand
-                        original = original[len(key):].strip()
-                        material_name_upper = original.upper()
-                        break
-                if brand_found:
+        # 1️⃣ Remove brand at the start
+        for brand, aliases in PERFUME_BRANDS.items():
+            all_keys = [brand.upper()] + [alias.upper() for alias in aliases]
+            for key in all_keys:
+                if material_name_upper.startswith(key):
+                    brand_found = brand
+                    original = original[len(key):].strip()
+                    material_name_upper = original.upper()
                     break
+            if brand_found:
+                break
 
-            # 2️⃣ ---- PHRASE-BASED PRODUCT TYPE DETECTION (NEW) ----
-            product_type_found = None
+        # 2️⃣ ---- PHRASE-BASED PRODUCT TYPE DETECTION (NEW) ----
+        product_type_found = None
 
-            all_product_terms = []
-            for category, aliases in PRODUCT_TYPE_TERMS.items():
-                for alias in aliases:
-                    all_product_terms.append((alias.lower(), category))
+        all_product_terms = []
+        for category, aliases in PRODUCT_TYPE_TERMS.items():
+            for alias in aliases:
+                all_product_terms.append((alias.lower(), category))
 
-            # 🔥 Sort by length → longest phrases first (CRITICAL)
-            all_product_terms.sort(key=lambda x: len(x[0]), reverse=True)
+        # 🔥 Sort by length → longest phrases first (CRITICAL)
+        all_product_terms.sort(key=lambda x: len(x[0]), reverse=True)
 
-            original_lower = original.lower()
+        original_lower = original.lower()
 
-            for phrase, category in all_product_terms:
-                pattern = re.escape(phrase)
-                if re.search(pattern, original_lower):
-                    product_type_found = category
+        for phrase, category in all_product_terms:
+            pattern = re.escape(phrase)
+            if re.search(pattern, original_lower):
+                product_type_found = category
 
-                    # remove only first occurrence
-                    original = re.sub(pattern, '', original, count=1, flags=re.IGNORECASE)
-                    break
+                # remove only first occurrence
+                original = re.sub(pattern, '', original, count=1, flags=re.IGNORECASE)
+                break
 
-            # 3️⃣ Tokenization AFTER phrase removal
-            tokens = re.split(r'\s+|[()|]', original)
+        # 3️⃣ Tokenization AFTER phrase removal
+        tokens = re.split(r'\s+|[()|]', original)
 
-            # Flatten special terms
-            special_terms = []
-            for term_dict in [SPECIAL_MARK_TERMS, SEX_TERMS, PTT_2]:
-                for aliases in term_dict.values():
-                    special_terms.extend(aliases)
+        # Flatten special terms
+        special_terms = []
+        for term_dict in [SPECIAL_MARK_TERMS, SEX_TERMS, PTT_2]:
+            for aliases in term_dict.values():
+                special_terms.extend(aliases)
 
-            special_terms = {t.lower() for t in special_terms}
+        special_terms = {t.lower() for t in special_terms}
 
-            cleaned_tokens = []
+        cleaned_tokens = []
 
-            i = 0
-            while i < len(tokens):
-                token = tokens[i].strip()
-                token_lower = token.lower()
+        i = 0
+        while i < len(tokens):
+            token = tokens[i].strip()
+            token_lower = token.lower()
 
-                if not token_lower:
-                    i += 1
-                    continue
-
-                # ❌ Remove special terms
-                if token_lower in special_terms:
-                    i += 1
-                    continue
-
-                # ❌ Remove decimals
-                if re.match(r'^\d+\.\d+$', token_lower):
-                    i += 1
-                    continue
-
-                # ❌ Remove number + unit (e.g., 100 ml)
-                if token_lower.isdigit() and i + 1 < len(tokens) and tokens[i + 1].lower() in ['ml', 'g', 'oz']:
-                    i += 2
-                    continue
-
-                # ❌ Remove standalone units
-                if token_lower in ['ml', 'g', 'oz', 'spray']:
-                    i += 1
-                    continue
-
-                # ❌ Remove combined unit (100ml)
-                if re.match(r'^\d+(\.\d+)?(ml|g|oz)$', token_lower):
-                    i += 1
-                    continue
-
-                cleaned_tokens.append(token.capitalize())
+            if not token_lower:
                 i += 1
+                continue
 
-            cleaned_name = ' '.join(cleaned_tokens)
+            # ❌ Remove special terms
+            if token_lower in special_terms:
+                i += 1
+                continue
 
-            # 4️⃣ Errors handling
-            if not cleaned_name:
-                errors.append("\nНе вдалося визначити серію із назви")
+            # ❌ Remove decimals
+            if re.match(r'^\d+\.\d+$', token_lower):
+                i += 1
+                continue
 
-            if not brand_found:
-                errors.append("\nНе вдалося знайти бренд(можливо його не було взагалі)")
+            # ❌ Remove number + unit (e.g., 100 ml)
+            if token_lower.isdigit() and i + 1 < len(tokens) and tokens[i + 1].lower() in ['ml', 'g', 'oz']:
+                i += 2
+                continue
 
-            return cleaned_name, brand_found
+            # ❌ Remove standalone units
+            if token_lower in ['ml', 'g', 'oz', 'spray']:
+                i += 1
+                continue
+
+            # ❌ Remove combined unit (100ml)
+            if re.match(r'^\d+(\.\d+)?(ml|g|oz)$', token_lower):
+                i += 1
+                continue
+
+            cleaned_tokens.append(token.capitalize())
+            i += 1
+
+        cleaned_name = ' '.join(cleaned_tokens)
+
+        # 4️⃣ Errors handling
+        if not cleaned_name:
+            errors.append("\nНе вдалося визначити серію із назви")
+
+        if not brand_found:
+            errors.append("\nНе вдалося знайти бренд(можливо його не було взагалі)")
+
+        return cleaned_name, brand_found
 
     async def get_algolia_key() -> dict | None:
         browser = await get_browser()  # gets shared instance
         result = {}
         got_key = asyncio.Event()
     
-        context = await browser.new_context(user_agent="Mozilla/5.0 ...")
+        context = await browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            )
+        )
         page = await context.new_page()
     
         async def handle_response(response):
@@ -902,6 +908,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         return result if result else None
             
     async def find_fragrantica_url(product_name, brand, model):
+        ALGOLIA_API_KEY = None  # initialize first
         creds = await get_algolia_key()
         if creds:
             print("API Key:", creds["api_key"])

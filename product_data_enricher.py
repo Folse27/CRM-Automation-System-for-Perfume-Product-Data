@@ -1233,7 +1233,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         print(url)
         if url:
             browser = await get_browser()
-            page = await _browser.new_page()
+            page = await browser.new_page()
             await page.route("**/*", lambda route: route.abort()
                 if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
                 else route.continue_()
@@ -1252,8 +1252,8 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
             container = soup.select_one(".tabs-content")
     
         if RU_url:
-            _browser = await get_browser()
-            page = await _browser.new_page()
+            browser = await get_browser()
+            page = await browser.new_page()
             await page.route("**/*", lambda route: route.abort()
                 if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
                 else route.continue_()

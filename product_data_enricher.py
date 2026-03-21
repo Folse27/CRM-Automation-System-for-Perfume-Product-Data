@@ -611,15 +611,9 @@ async def get_browser() -> Browser:
                 args=[
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
+                    "--disable-dev-shm-usage",  # most important for Render
                     "--disable-gpu",
-                    "--single-process",
-                    "--no-zygote",
-                    "--disable-extensions",
-                    "--disable-background-networking",
-                    "--disable-default-apps",
-                    "--mute-audio",
-                    "--no-first-run",
+                    # Remove --single-process and --no-zygote
                 ]
             )
     return _browser

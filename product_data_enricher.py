@@ -894,7 +894,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                     got_key.set()
     
         page.on("response", handle_response)
-        asyncio.ensure_future(
+        goto_task = asyncio.ensure_future(
             page.goto("https://www.fragrantica.ua/search/", wait_until="commit")
         )
     
@@ -903,6 +903,13 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         except asyncio.TimeoutError:
             print("[ERROR] Timed out waiting for Algolia key")
         finally:
+            # Cancel the navigation task before closing context
+            if not goto_task.done():
+                goto_task.cancel()
+                try:
+                    await goto_task
+                except (asyncio.CancelledError, Exception):
+                    pass  # expected — we cancelled it
             await context.close()
     
         return result if result else None
@@ -1632,6 +1639,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 errors.append("Не вдалося перекласти опис з ua на ru")
 
     custom_fields_array = [{"name": k, "value": str(v)} for k, v in data.items() if v is not None]
+    close_browser()
     print(custom_fields_array)
     print(json.dumps(data, ensure_ascii=False, indent=4))
     def update_material(update_data):

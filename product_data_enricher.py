@@ -1352,154 +1352,152 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         errors.append("Не вдалося знайти fragrantica.ua url")
     
     async def fragrantica_scrape(fragrantica_url: str):
-        async with async_playwright() as p:
-            try:
-                browser = get_browser()
-                fragrantica_soup = await get_fragrantica_page(fragrantica_url, browser)
-    
-                collection = ""
-                if fragrantica_soup and  fragrantica_soup.find("small", string=re.compile(r"Колекції")):
-                    collection = fragrantica_soup.find("small", string=re.compile(r"Колекції"))
-                description_block = ""
-                if fragrantica_soup and fragrantica_soup.find("div", id="perfume-description-content"):
-                    description_block = fragrantica_soup.find("div", id="perfume-description-content")
-                fragrantica_description = ""
-                accords = []
-                accords_header = ""
-                if fragrantica_soup and fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower()):
-                    accords_header = fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower())
-            
-                if fragrantica_url:
-                    if collection:
-                        parent = collection.find_parent("h3")
-                        name = parent.get_text(strip=True).replace("Колекції", "").strip()
-                        data["sieriia_491"] = name
-                        #print("Колекції:", name)
-                    else:
-                        print("Колекції not found")
-            
-                    if description_block:
-                        fragrantica_description = description_block.get_text(separator=" ", strip=True)
-                        print(fragrantica_description)
-                    else:
-                        errors.append("Не вдалося знайти опис на fragrantica.ua(для нот та типу аромата")
-                        print("Description not found")
-            
-                    def format_notes(desc):
-                        desc = re.sub(r'\s+', ' ', desc).strip()
-                        print("formating")
-            
-                        patterns = {
-                            "Верхні ноти": r"(?:верхн(?:і|я)\s+ноти?|початков(?:і|а)\s+ноти?)\s*[:：]?\s*([^\.;]+)",
-                            "Ноти серця": r"(?:нот[аи]?\s+серця|серцев(?:і|а)\s+ноти?)\s*[:：]?\s*([^\.;]+)",
-                            "Базові ноти": r"(?:базов(?:і|а)\s+ноти?|ноти\s+бази)\s*[:：]?\s*([^\.;]+)"
-                        }
-            
-                        formatted_sections = []
-            
-                        for key, pattern in patterns.items():
-                            match = re.search(pattern, desc, re.IGNORECASE)
-                            if match:
-                                print(match.group(1))
-                                notes = match.group(1)
-            
-                                # Remove only leading conjunctions like 'а', 'та', 'і' (not part of note names)
-                                notes = re.sub(r'^(?:а|та|і)\b\s*:?\s*', '', notes, flags=re.IGNORECASE)
-            
-                                notes_list = [
-                                    n.strip().capitalize()
-                                    for n in re.split(r',|\sі\s|\sта\s', notes)
-                                    if n.strip()
-                                ]
-            
-                                formatted_sections.append(f"{key}: {', '.join(notes_list)}.")
-            
-                        return ' '.join(formatted_sections)
-            
-                    required_sections = ["Верхні ноти:", "Ноти серця:", "Базові ноти:"]
-            
-                    def is_valid_notes(text):
-                        return all(section in text for section in required_sections)
-                    
-                    final_notes = ""
-                    if fragrantica_description:
-                        final_notes = format_notes(fragrantica_description)
-                        year = re.search(r'\b(19\d{2}|2\d{3})\b', fragrantica_description)
-                        if year:
-                            data["god_vypuska_270"] = year.group()
-                            print(year.group())
-                        print(f"notes 1:{final_notes}")
-                        print(is_valid_notes(final_notes))
-                            
-                    if final_notes:
-                        if is_valid_notes(final_notes):
-                            data["noty_446"] = final_notes
-                        else:
-                            errors.append("У фінальних нотах неправильна структура або їх немає на fragrantica.ua")
-                            print("Notes structure is incomplete1:", final_notes)
+        try:
+            fragrantica_soup = await get_fragrantica_page(fragrantica_url)
+
+            collection = ""
+            if fragrantica_soup and  fragrantica_soup.find("small", string=re.compile(r"Колекції")):
+                collection = fragrantica_soup.find("small", string=re.compile(r"Колекції"))
+            description_block = ""
+            if fragrantica_soup and fragrantica_soup.find("div", id="perfume-description-content"):
+                description_block = fragrantica_soup.find("div", id="perfume-description-content")
+            fragrantica_description = ""
+            accords = []
+            accords_header = ""
+            if fragrantica_soup and fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower()):
+                accords_header = fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower())
+        
+            if fragrantica_url:
+                if collection:
+                    parent = collection.find_parent("h3")
+                    name = parent.get_text(strip=True).replace("Колекції", "").strip()
+                    data["sieriia_491"] = name
+                    #print("Колекції:", name)
+                else:
+                    print("Колекції not found")
+        
+                if description_block:
+                    fragrantica_description = description_block.get_text(separator=" ", strip=True)
+                    print(fragrantica_description)
+                else:
+                    errors.append("Не вдалося знайти опис на fragrantica.ua(для нот та типу аромата")
+                    print("Description not found")
+        
+                def format_notes(desc):
+                    desc = re.sub(r'\s+', ' ', desc).strip()
+                    print("formating")
+        
+                    patterns = {
+                        "Верхні ноти": r"(?:верхн(?:і|я)\s+ноти?|початков(?:і|а)\s+ноти?)\s*[:：]?\s*([^\.;]+)",
+                        "Ноти серця": r"(?:нот[аи]?\s+серця|серцев(?:і|а)\s+ноти?)\s*[:：]?\s*([^\.;]+)",
+                        "Базові ноти": r"(?:базов(?:і|а)\s+ноти?|ноти\s+бази)\s*[:：]?\s*([^\.;]+)"
+                    }
+        
+                    formatted_sections = []
+        
+                    for key, pattern in patterns.items():
+                        match = re.search(pattern, desc, re.IGNORECASE)
+                        if match:
+                            print(match.group(1))
+                            notes = match.group(1)
+        
+                            # Remove only leading conjunctions like 'а', 'та', 'і' (not part of note names)
+                            notes = re.sub(r'^(?:а|та|і)\b\s*:?\s*', '', notes, flags=re.IGNORECASE)
+        
+                            notes_list = [
+                                n.strip().capitalize()
+                                for n in re.split(r',|\sі\s|\sта\s', notes)
+                                if n.strip()
+                            ]
+        
+                            formatted_sections.append(f"{key}: {', '.join(notes_list)}.")
+        
+                    return ' '.join(formatted_sections)
+        
+                required_sections = ["Верхні ноти:", "Ноти серця:", "Базові ноти:"]
+        
+                def is_valid_notes(text):
+                    return all(section in text for section in required_sections)
+                
+                final_notes = ""
+                if fragrantica_description:
+                    final_notes = format_notes(fragrantica_description)
+                    year = re.search(r'\b(19\d{2}|2\d{3})\b', fragrantica_description)
+                    if year:
+                        data["god_vypuska_270"] = year.group()
+                        print(year.group())
+                    print(f"notes 1:{final_notes}")
+                    print(is_valid_notes(final_notes))
+                        
+                if final_notes:
+                    if is_valid_notes(final_notes):
+                        data["noty_446"] = final_notes
                     else:
                         errors.append("У фінальних нотах неправильна структура або їх немає на fragrantica.ua")
-                        print("Notes structure is incomplete2:", final_notes)
-            
-                    mapped_aroma_types = []
-                    seen = set()
-            
-                    for aroma_type, terms in AROMA_TYPE_TERMS.items():
-                        for term in terms:
-                            term_lower = term.lower()
-            
-                            # Find full word matches only (avoid partial word issues)
-                            pattern = r'\b' + re.escape(term_lower) + r'\b'
-                        
-                            if re.search(pattern, fragrantica_description):
-            
-                                pattern = r'\b' + re.escape(term_lower) + r'\b(?=[\s\.,;]|$)'
-            
-                                # ❌ Skip if it's followed by "ноти"
-                            if re.search(pattern + r'\s+ноти', fragrantica_description, re.IGNORECASE):
-                                continue
-            
-                            if re.search(pattern, fragrantica_description, re.IGNORECASE):
-                                if aroma_type not in seen:
-                                    mapped_aroma_types.append(aroma_type)
-                                    seen.add(aroma_type)
-            
-                    accords_container = None
-            
-                    if accords_header:
-                        accords_container = accords_header.find_next_sibling("div")
-            
-                    if accords_container:
-                        accords = [
-                            span.get_text(strip=True)
-                            for span in accords_container.find_all("span", class_="truncate")
-                        ]
-            
-                    result_string_accords = ""
-                    if accords:
-                        print(f"accords raw:{accords}")
-            
-                        # Merge description aroma types and accord aroma types
-                        mapped_types = mapped_aroma_types.copy()  # start with description values
-            
-                        for accord in accords:
-                            accord_lower = accord.lower()
-                            for aroma_type, terms in AROMA_TYPE_TERMS.items():
-                                for term in terms:
-                                    if term.lower() in accord_lower:
-                                        if aroma_type not in mapped_types:
-                                            mapped_types.append(aroma_type)
-                                        break
-            
-                        if mapped_types:
-                            # Convert to comma-separated string
-                            result_string_accords = ", ".join(mapped_types)
-                            if result_string_accords:
-                                data["tip_aromata_269"] = result_string_accords
-                            else:
-                                errors.append("Не вдалося визначити аккорди на fragrantica.ua")
-                finally:
-                    await close_browser()
+                        print("Notes structure is incomplete1:", final_notes)
+                else:
+                    errors.append("У фінальних нотах неправильна структура або їх немає на fragrantica.ua")
+                    print("Notes structure is incomplete2:", final_notes)
+        
+                mapped_aroma_types = []
+                seen = set()
+        
+                for aroma_type, terms in AROMA_TYPE_TERMS.items():
+                    for term in terms:
+                        term_lower = term.lower()
+        
+                        # Find full word matches only (avoid partial word issues)
+                        pattern = r'\b' + re.escape(term_lower) + r'\b'
+                    
+                        if re.search(pattern, fragrantica_description):
+        
+                            pattern = r'\b' + re.escape(term_lower) + r'\b(?=[\s\.,;]|$)'
+        
+                            # ❌ Skip if it's followed by "ноти"
+                        if re.search(pattern + r'\s+ноти', fragrantica_description, re.IGNORECASE):
+                            continue
+        
+                        if re.search(pattern, fragrantica_description, re.IGNORECASE):
+                            if aroma_type not in seen:
+                                mapped_aroma_types.append(aroma_type)
+                                seen.add(aroma_type)
+        
+                accords_container = None
+        
+                if accords_header:
+                    accords_container = accords_header.find_next_sibling("div")
+        
+                if accords_container:
+                    accords = [
+                        span.get_text(strip=True)
+                        for span in accords_container.find_all("span", class_="truncate")
+                    ]
+        
+                result_string_accords = ""
+                if accords:
+                    print(f"accords raw:{accords}")
+        
+                    # Merge description aroma types and accord aroma types
+                    mapped_types = mapped_aroma_types.copy()  # start with description values
+        
+                    for accord in accords:
+                        accord_lower = accord.lower()
+                        for aroma_type, terms in AROMA_TYPE_TERMS.items():
+                            for term in terms:
+                                if term.lower() in accord_lower:
+                                    if aroma_type not in mapped_types:
+                                        mapped_types.append(aroma_type)
+                                    break
+        
+                    if mapped_types:
+                        # Convert to comma-separated string
+                        result_string_accords = ", ".join(mapped_types)
+                        if result_string_accords:
+                            data["tip_aromata_269"] = result_string_accords
+                        else:
+                            errors.append("Не вдалося визначити аккорди на fragrantica.ua")
+        except Exception as e:
+            print(f"[ERROR] fragrantica_scrape failed: {e}")
 
     if randewoo_url:
         async with async_playwright() as p:

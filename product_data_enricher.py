@@ -1,9 +1,7 @@
 print("SCRIPT STARTED")
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
-from urllib.parse import quote
-from urllib.parse import quote_plus
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, parse_qs, quote_plus, quote
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from difflib import SequenceMatcher
@@ -841,25 +839,64 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
 
             return cleaned_name, brand_found
 
-    async def get_algolia_key():
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await Stealth().apply_stealth_async(page)
-            await page.goto("https://www.fragrantica.ua/", wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_timeout(3000)  # wait 3s for JS to execute
-            html = await page.content()
-            await browser.close()
+    async def get_algolia_key() -> dict | None:
+        """
+        Navigates to fragrantica.ua/search/, intercepts the Algolia request,
+        and extracts the api key + app id from the query parameters.
+        Returns {"api_key": ..., "app_id": ...} or None.
+        """
+        result = {}
     
-            print("HTML length:", len(html))
-            key_match = re.search(r'["\']apiKey["\']\s*:\s*["\']([A-Za-z0-9]{20,50})["\']', html)
-            if key_match:
-                return key_match.group(1)
-            print("Snippet:", html[:1000])
-            return None
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox"]
+            )
+            context = await browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/122.0.0.0 Safari/537.36"
+                )
+            )
+    
+            page = await context.new_page()
+    
+            # Intercept responses from Algolia
+            async def handle_response(response):
+                url = response.url
+                if "algolia.net" in url and "queries" in url:
+                    parsed = urlparse(url)
+                    params = parse_qs(parsed.query)
+                    api_key = params.get("x-algolia-api-key", [None])[0]
+                    app_id = params.get("x-algolia-application-id", [None])[0]
+                    if api_key and app_id:
+                        result["api_key"] = api_key
+                        result["app_id"] = app_id
+                        print(f"[SUCCESS] app_id={app_id} | api_key={api_key[:20]}...")
+    
+            page.on("response", handle_response)
+    
+            try:
+                await page.goto(
+                    "https://www.fragrantica.ua/search/",
+                    wait_until="networkidle",
+                    timeout=60000
+                )
+            except Exception as e:
+                print(f"[ERROR] Navigation failed: {e}")
+            finally:
+                await browser.close()
+    
+        return result if result else None
             
     async def find_fragrantica_url(product_name, brand, model):
-        ALGOLIA_API_KEY = await get_algolia_key()
+        creds = await get_algolia_key()
+        if creds:
+            print("API Key:", creds["api_key"])
+            ALGOLIA_API_KEY = creds["api_key"]
+        else:
+            print("Failed to extract Algolia credentials")
         if not ALGOLIA_API_KEY:
             print("No Algolia key found")
             return None

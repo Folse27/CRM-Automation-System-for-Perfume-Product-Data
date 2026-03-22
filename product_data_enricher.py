@@ -11,6 +11,8 @@ from html import unescape
 from telegram import Bot
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
+import psutil
+import sys
 import playwright_stealth
 import tracemalloc
 import time
@@ -26,6 +28,8 @@ import html
 import os
 import unicodedata
 import asyncio
+
+sys.stdout.reconfigure(line_buffering=True)
 
 load_dotenv("/etc/secrets/.env")
 
@@ -596,12 +600,12 @@ UKR_TO_RU = {
     "унісекс": "унисекс",
 }
 
-tracemalloc.start()
+process = psutil.Process(os.getpid())
 
 while True:
-    current, peak = tracemalloc.get_traced_memory()
-    print(f"Current: {current}, Peak: {peak}")
+    print(process.memory_info().rss, flush=True)
     time.sleep(1)
+
 
 @asynccontextmanager
 async def fresh_browser():

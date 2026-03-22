@@ -1738,7 +1738,6 @@ def get_material_by_id(identifier):
         return {}  # safe fallback
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
-    asyncio.create_task(monitor_memory())
     async with fresh_browser() as browser:
         errors_from_run, debug_message = await main_func(
             browser, title, price, sku, identifier, target_id,
@@ -1809,6 +1808,7 @@ async def trigger_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def action_standart(category):
     try:
+        asyncio.create_task(monitor_memory())
         if category == "1":
             await process_category(1443408, 403)
         elif category == "2":

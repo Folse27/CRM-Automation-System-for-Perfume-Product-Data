@@ -10,6 +10,7 @@ from deep_translator import GoogleTranslator
 from html import unescape
 from telegram import Bot
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 import playwright_stealth
 print(dir(playwright_stealth))
 import gc
@@ -20,15 +21,12 @@ import re
 import random
 import pprint
 import time
-import cloudscraper
 import html
 import os
 import unicodedata
 import asyncio
 
 load_dotenv("/etc/secrets/.env")
-
-scraper = cloudscraper.create_scraper()
 
 ALGOLIA_APP_ID = os.getenv("ALGOLIA_APP_ID")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -597,6 +595,25 @@ UKR_TO_RU = {
     "унісекс": "унисекс",
 }
 
+@asynccontextmanager
+async def fresh_browser():
+    """Yields a single Chromium browser, guaranteed closed on exit."""
+    playwright = await async_playwright().start()
+    browser = await playwright.chromium.launch(
+        headless=True,
+        args=[
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+        ]
+    )
+    try:
+        yield browser
+    finally:
+        await browser.close()
+        await playwright.stop()
+
 _browser: Browser | None = None
 _playwright = None
 _browser_lock = asyncio.Lock()
@@ -696,7 +713,7 @@ async def get_id_and_urls_from_text(text):
 
     return product_match.group(1).strip() if product_match else None, id_match.group(1) if id_match else None, makeup_url.group(1) if makeup_url else None, fragrantica_url.group(1) if fragrantica_url else None, randewoo_url.group(1) if randewoo_url else None
 
-async def main_func(product, price, sku, identifier, category_id, makeup_url, fragrantica_url, randewoo_url):
+async def main_func(browser, product, price, sku, identifier, category_id, makeup_url, fragrantica_url, randewoo_url):
     try:
         data = {}
         data["orighinalnost_360"] = "оригинал"
@@ -738,6 +755,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
     
             # Get all product items
             products = soup.select("li.simple-slider-list__item")
+            del soup
     
             brand = brand.lower().strip().replace(" ", "")
             tokens = re.sub(r"[’'`]", "", model.lower()).split()
@@ -872,8 +890,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
     
             return cleaned_name, brand_found
     
-        async def get_algolia_key() -> dict | None:
-            browser = await get_browser()  # gets shared instance
+        async def get_algolia_key(browser) -> dict | None:
             result = {}
             got_key = asyncio.Event()
         
@@ -885,7 +902,11 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 )
             )
             page = await context.new_page()
-            
+            await page.route("**/*", lambda route: route.abort()
+                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
+                else route.continue_()
+            )
+        
             async def handle_response(response):
                 if "algolia.net" in response.url and "queries" in response.url:
                     parsed = urlparse(response.url)
@@ -907,20 +928,19 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
             except asyncio.TimeoutError:
                 print("[ERROR] Timed out waiting for Algolia key")
             finally:
-                # Cancel the navigation task before closing context
                 if not goto_task.done():
                     goto_task.cancel()
                     try:
                         await goto_task
                     except (asyncio.CancelledError, Exception):
-                        pass  # expected — we cancelled it
+                        pass
                 await context.close()
         
             return result if result else None
                 
-        async def find_fragrantica_url(product_name, brand, model):
+        async def find_fragrantica_url(browser, product_name, brand, model):
             ALGOLIA_API_KEY = None  # initialize first
-            creds = await get_algolia_key()
+            creds = await get_algolia_key(browser)
             if creds:
                 print("API Key:", creds["api_key"])
                 ALGOLIA_API_KEY = creds["api_key"]
@@ -1214,7 +1234,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
     
         print(f"FRAGRANTICA{fragrantica_url}")
         if search_name and not fragrantica_url:
-            fragrantica_url = await find_fragrantica_url(search_name, brand, exact_collection)
+            fragrantica_url = await find_fragrantica_url(browser, search_name, brand, exact_collection)
     
         if fragrantica_url:
             debug_message.append(f"fragrantica url: {fragrantica_url}")
@@ -1238,35 +1258,52 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
         fragrantica_soup = ""
         print(url)
         if url:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
-                page = await browser.new_page()
-                await page.goto(url, timeout=15000)  # adjust timeout as needed
+            context = await browser.new_context()
+            page = await context.new_page()
+            await page.route("**/*", lambda route: route.abort()
+                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
+                else route.continue_()
+            )
+            try:
+                await page.goto(url, timeout=15000)
                 await asyncio.sleep(5)
-                html = await page.content()
-                await browser.close()
-                soup = BeautifulSoup(html, "html.parser")
+                html_content = await page.content()
+                soup = BeautifulSoup(html_content, "html.parser")
+            except Exception as e:
+                print(f"[ERROR] Failed to fetch makeup UA url: {e}")
+            finally:
+                await context.close()
     
         if soup:      
             container = soup.select_one(".tabs-content")
+            del soup
     
         if RU_url:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
-                page = await browser.new_page()
-                await page.goto(RU_url, timeout=15000)  # adjust timeout as needed
+            context = await browser.new_context()
+            page = await context.new_page()
+            await page.route("**/*", lambda route: route.abort()
+                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
+                else route.continue_()
+            )
+            try:
+                await page.goto(RU_url, timeout=15000)
                 await asyncio.sleep(5)
-                html = await page.content()
-                await browser.close()
-                RU_soup = BeautifulSoup(html, "html.parser")
+                html_content = await page.content()
+                RU_soup = BeautifulSoup(html_content, "html.parser")
+            except Exception as e:
+                print(f"[ERROR] Failed to fetch makeup RU url: {e}")
+            finally:
+                await context.close()
     
         if RU_soup:
             RU_container = RU_soup.select_one(".tabs-content")
+            del RU_soup
     
-        async def get_fragrantica_page(url: str) -> BeautifulSoup | None:
-            browser = await get_browser()
-            page = await browser.new_page()
-            await page.set_extra_http_headers({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"})
+        async def get_fragrantica_page(browser, url: str) -> BeautifulSoup | None:
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+            )
+            page = await context.new_page()
             await page.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
@@ -1283,17 +1320,14 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 print(f"[ERROR] Failed to fetch {url}: {e}")
                 return None
             finally:
-                await page.close()  # close page, not context
+                await context.close()  # closes page too
     
         if fragrantica_url:
             print(fragrantica_url)
-            browser = await get_browser()
-            #context = await browser.new_context(
-                #user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
-                #viewport={"width": 1280, "height": 800}
-            #)
-            page = await browser.new_page()
-            await page.set_extra_http_headers({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"})
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+            )
+            page = await context.new_page()
             try:
                 await page.goto(fragrantica_url)
                 await page.wait_for_function("""
@@ -1305,7 +1339,7 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 def parse_number(text):
                     text = text.lower().replace(',', '').strip()
                     if 'k' in text:
-                        return int(float(text.replace('k','')) * 1000)
+                        return int(float(text.replace('k', '')) * 1000)
                     return int(text)
         
                 cards = await page.query_selector_all('.tw-rating-card .flex.flex-col')
@@ -1357,14 +1391,13 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 print(f"[ERROR] Ratings scrape failed: {e}")
                 errors.append("Не вдалося отримати рейтинги з fragrantica.ua")
             finally:
-                await page.close()
-                #await context.close()  # close context, not browser
+                await context.close()
         else:
             errors.append("Не вдалося знайти fragrantica.ua url")
         
         async def fragrantica_scrape(fragrantica_url: str):
             try:
-                fragrantica_soup = await get_fragrantica_page(fragrantica_url)
+                fragrantica_soup = await get_fragrantica_page(browser, fragrantica_url)
     
                 collection = ""
                 if fragrantica_soup and  fragrantica_soup.find("small", string=re.compile(r"Колекції")):
@@ -1377,6 +1410,8 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                 accords_header = ""
                 if fragrantica_soup and fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower()):
                     accords_header = fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower())
+                if soup:
+                    del soup
             
                 if fragrantica_url:
                     if collection:
@@ -1509,29 +1544,24 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                                 errors.append("Не вдалося визначити аккорди на fragrantica.ua")
             except Exception as e:
                 print(f"[ERROR] fragrantica_scrape failed: {e}")
+        if fragrantica_url:
+            await fragrantica_scrape(fragrantica_url)
     
         if randewoo_url:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
-                page = await browser.new_page()
-                    
-                # Navigate and wait for network idle
+            context = await browser.new_context()
+            page = await context.new_page()
+            description_html_ru = None
+            try:
                 await page.goto(randewoo_url, wait_until='domcontentloaded', timeout=30000)
-                    
-                # Wait extra time for JS to inject JSON-LD
                 await page.wait_for_timeout(5000)
-                    
-                # Try to query scripts inside a safe JS execution context
-                description_html_ru = None
+        
                 try:
-                    # Evaluate inside page context
                     scripts_content = await page.eval_on_selector_all(
                         'script[type="application/ld+json"]',
                         "elements => elements.map(e => e.textContent)"
                     )
-                        
                     print(f"Found {len(scripts_content)} JSON-LD scripts")
-                        
+        
                     for i, content in enumerate(scripts_content, 1):
                         try:
                             data2 = json.loads(content)
@@ -1541,31 +1571,31 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
                                     description_html_ru = unescape(item["description"]).strip()
                                     print("Found product description!")
                                     break
-                                if description_html_ru:
-                                    break
+                            if description_html_ru:
+                                break
                         except Exception as e:
                             print(f"Script #{i} JSON parse error:", e)
                 except Exception as e:
                     print("Error evaluating scripts:", e)
-                    
-                await browser.close()
-                    
-                if description_html_ru:
-                    soup_desc = BeautifulSoup(description_html_ru, "html.parser")
-    
-                    for p in soup_desc.find_all("p"):
-                        translated_text = GoogleTranslator(source='ru', target='uk').translate(p.get_text())
-                        p.string = translated_text
-    
-                    if soup_desc and str(soup_desc):
-                        description_html_ua = str(soup_desc)
-                        data["opisaniie_ua_1469370"] = description_html_ua
-                    else:
-                        errors.append("не вдалося перекласти опис на рандеву з ru на ua")
-                            
-                    data["opisaniie_ru_1469371"] = description_html_ru
+        
+            except Exception as e:
+                print(f"[ERROR] Failed to fetch randewoo url: {e}")
+            finally:
+                await context.close()
+        
+            if description_html_ru:
+                soup_desc = BeautifulSoup(description_html_ru, "html.parser")
+                for p in soup_desc.find_all("p"):
+                    translated_text = GoogleTranslator(source='ru', target='uk').translate(p.get_text())
+                    p.string = translated_text
+                if soup_desc and str(soup_desc):
+                    data["opisaniie_ua_1469370"] = str(soup_desc)
                 else:
-                    errors.append("Не вдалося знайти опис на рандеву!")
+                    errors.append("не вдалося перекласти опис на рандеву з ru на ua")
+                del soup_desc
+                data["opisaniie_ru_1469371"] = description_html_ru
+            else:
+                errors.append("Не вдалося знайти опис на рандеву!")
                     
         if container:        
             # Second <li> = опис
@@ -1661,8 +1691,6 @@ async def main_func(product, price, sku, identifier, category_id, makeup_url, fr
     
         
         return None, None
-    finally:
-        await close_browser()
 
 def get_materials(category_id):
     try:
@@ -1693,7 +1721,12 @@ def get_material_by_id(identifier):
         return {}  # safe fallback
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
-    errors_from_run, debug_message = await main_func(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url)
+    async with fresh_browser() as browser:
+        errors_from_run, debug_message = await main_func(
+            browser, title, price, sku, identifier, target_id,
+            makeup_url, fragrantica_url, randewoo_url
+        )
+    gc.collect()
     if errors_from_run:
         await send_errors_to_telegram(errors_from_run, BOT_TOKEN, TARGET_GROUP_ID, debug_message)
 

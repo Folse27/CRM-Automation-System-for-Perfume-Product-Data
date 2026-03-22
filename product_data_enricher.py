@@ -604,10 +604,15 @@ LIMIT = 400 * 1024 * 1024  # 400 MB
 process = psutil.Process(os.getpid())
 
 async def monitor_memory():
-    if process.memory_info().rss > LIMIT:
-        print("WARNING: nearing memory limit", flush=True)
-    print(process.memory_info().rss, flush=True)
-    time.sleep(1)
+    while True:
+        mem = process.memory_info().rss
+
+        if mem > LIMIT:
+            print("WARNING: nearing memory limit", flush=True)
+
+        print(mem, flush=True)
+
+        await asyncio.sleep(1)
 
 
 @asynccontextmanager

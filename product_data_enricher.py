@@ -620,7 +620,7 @@ async def fresh_browser():
     """Yields a single Chromium browser, guaranteed closed on exit."""
     playwright = await async_playwright().start()
     browser = await playwright.chromium.launch(
-        headless=False,
+        headless=True,
         args=[
             "--no-sandbox",
             "--disable-setuid-sandbox",

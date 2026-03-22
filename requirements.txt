@@ -5,4 +5,4 @@ beautifulsoup4
 deep-translator
 python-dotenv
 requests
-cloudscraper
+psutil

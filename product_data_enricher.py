@@ -12,7 +12,8 @@ from telegram import Bot
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import playwright_stealth
-print(dir(playwright_stealth))
+import tracemalloc
+import time
 import gc
 import httpx
 import requests
@@ -594,6 +595,13 @@ UKR_TO_RU = {
     "для жінок": "для женщин",
     "унісекс": "унисекс",
 }
+
+tracemalloc.start()
+
+while True:
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"Current: {current}, Peak: {peak}")
+    time.sleep(1)
 
 @asynccontextmanager
 async def fresh_browser():

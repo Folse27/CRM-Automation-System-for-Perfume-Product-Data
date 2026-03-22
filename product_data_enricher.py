@@ -620,7 +620,7 @@ async def fresh_browser():
     """Yields a single Chromium browser, guaranteed closed on exit."""
     playwright = await async_playwright().start()
     browser = await playwright.chromium.launch(
-        headless=True,
+        headless=False,
         args=[
             "--no-sandbox",
             "--disable-setuid-sandbox",
@@ -1345,7 +1345,10 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         if fragrantica_url:
             print(fragrantica_url, flush=True)
             context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+                viewport={"width": 1280, "height": 800},
+                device_scale_factor=1,
+                java_script_enabled=True,
             )
             page = await context.new_page()
             try:
@@ -1355,6 +1358,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     const cards = document.querySelectorAll('.tw-rating-card > div');
                     return cards.length > 0;
                 }""", timeout=30000)
+                await page.wait_for_selector('.tw-rating-card .flex.flex-col', timeout=45000)
         
                 def parse_number(text):
                     text = text.lower().replace(',', '').strip()
@@ -1782,30 +1786,36 @@ async def trigger_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_lower = user_message.lower()
 
     if user_message == "Старт":
+        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Процесс запущено")
 
         # Run heavy code asynchronously
         asyncio.create_task(action_standart())
     elif user_message == "Старт1":
+        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Тест1 запущено")
 
         # Run heavy code asynchronously
         asyncio.create_task(action_standart("1"))
     elif user_message == "Старт2":
+        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Тест2 запущено")
 
         # Run heavy code asynchronously
         asyncio.create_task(action_standart("2"))
     elif user_message == "Тест":
-            await update.message.reply_text("✅ Тест запущено")
+        asyncio.create_task(monitor_memory())
+        await update.message.reply_text("✅ Тест запущено")
 
     elif "назва" in text_lower and "id" in text_lower and not "makeup url" in text_lower and not "fragrantica url" in text_lower:
+        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Сообщение содержит 'Назва' и 'id'")
         
         product, identifier = await get_product_and_id_from_text(user_message)
         print(product, identifier)
         asyncio.create_task(action_manual_name_and_id(product, identifier))
     elif "id" in text_lower and "makeup url" in text_lower or "fragrantica url" in text_lower or "randewoo url" in text_lower:
+        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Сообщение содержит 'id' и 'urls'")
         product, identifier, makeup_url, fragrantica_url, randewoo_url = await get_id_and_urls_from_text(user_message)
         print(product, identifier, makeup_url, fragrantica_url, randewoo_url)
@@ -1813,7 +1823,6 @@ async def trigger_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def action_standart(category):
     try:
-        asyncio.create_task(monitor_memory())
         if category == "1":
             await process_category(1443408, 403)
         elif category == "2":

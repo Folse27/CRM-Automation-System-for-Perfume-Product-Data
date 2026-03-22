@@ -1349,7 +1349,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             )
             page = await context.new_page()
             try:
-                await page.goto(fragrantica_url)
+                await page.goto(fragrantica_url, wait_until="domcontentloaded", timeout=60000)
                 await page.wait_for_function("""
                 () => {
                     const cards = document.querySelectorAll('.tw-rating-card > div');
@@ -1430,8 +1430,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 accords_header = ""
                 if fragrantica_soup and fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower()):
                     accords_header = fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower())
-                if soup:
-                    del soup
+                if fragrantica_soup:
+                    del fragrantica_soup
             
                 if fragrantica_url:
                     if collection:

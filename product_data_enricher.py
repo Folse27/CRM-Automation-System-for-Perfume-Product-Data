@@ -1691,6 +1691,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
         
         return None, None
+    finally:
+        print("Run finished")
 
 def get_materials(category_id):
     try:

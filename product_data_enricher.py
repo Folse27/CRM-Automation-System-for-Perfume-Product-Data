@@ -599,10 +599,13 @@ UKR_TO_RU = {
     "для жінок": "для женщин",
     "унісекс": "унисекс",
 }
+LIMIT = 400 * 1024 * 1024  # 400 MB
 
 process = psutil.Process(os.getpid())
 
-while True:
+async def monitor_memory():
+    if process.memory_info().rss > LIMIT:
+        print("WARNING: nearing memory limit", flush=True)
     print(process.memory_info().rss, flush=True)
     time.sleep(1)
 
@@ -753,7 +756,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             print(search_string)
             query = quote_plus(search_string)
             search_url = f"{base_url}/ua/search/?q={query}"
-            print(search_url)
+            print(search_url, flush=True)
     
             headers = {
             "User-Agent": "Mozilla/5.0"
@@ -954,7 +957,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             ALGOLIA_API_KEY = None  # initialize first
             creds = await get_algolia_key(browser)
             if creds:
-                print("API Key:", creds["api_key"])
+                print("API Key:", creds["api_key"], flush=True)
                 ALGOLIA_API_KEY = creds["api_key"]
             else:
                 print("Failed to extract Algolia credentials")
@@ -982,7 +985,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, headers=headers, json=payload)
-            print("Algolia response status:", response.status_code)
+            print("Algolia response status:", response.status_code, flush=True)
     
             try:
                 data = response.json()
@@ -1008,11 +1011,11 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             for hit in hits:
                 hit_brand = normalize(hit.get("dizajner"))
                 hit_name = normalize(hit.get("naslov"))
-                print(normalized_brand, hit_brand, tokens, hit_name)
+                print(normalized_brand, hit_brand, tokens, hit_name, flush=True)
     
                 # Check both brand and model match
                 if normalized_brand == hit_brand and all(token in normalize(hit_name) for token in tokens):
-                    print("MATCHED BOTH")
+                    print("MATCHED BOTH", flush=True)
                     url_field = hit.get("url")
     
                     if isinstance(url_field, dict):
@@ -1050,7 +1053,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             print(price_num)
             data["zaghalna_znizhka_587"] = result
         print(f"Random percentage: {percentage}%")
-        print(f"Original: {product} | Brand: {brand} | Exact_collection: {exact_collection}")
+        print(f"Original: {product} | Brand: {brand} | Exact_collection: {exact_collection}", flush=True)
         if sku:
             print(sku)
         def get_country(sku):
@@ -1221,7 +1224,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                data["klassifikatsiia_272"] = CLASSIFICATION[brand]
            components = [brand, exact_collection]
            search_name = " ".join([comp for comp in components if comp])
-           print(search_name)
+           print(search_name, flush=True)
         if product_type and sex and brand and exact_collection and volume:
             components = [special_mark, product_type, sex, brand, exact_collection, volume]
             name_checkbox = " ".join([comp for comp in components if comp])
@@ -1244,7 +1247,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             return text
     
     
-        print(f"FRAGRANTICA{fragrantica_url}")
+        print(f"FRAGRANTICA{fragrantica_url}", flush=True)
         if search_name and not fragrantica_url:
             fragrantica_url = await find_fragrantica_url(browser, search_name, brand, exact_collection)
     
@@ -1268,7 +1271,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         RU_soup = ""
         RU_container = ""
         fragrantica_soup = ""
-        print(url)
+        print(url, flush=True)
         if url:
             context = await browser.new_context()
             page = await context.new_page()
@@ -1335,7 +1338,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 await context.close()  # closes page too
     
         if fragrantica_url:
-            print(fragrantica_url)
+            print(fragrantica_url, flush=True)
             context = await browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
             )
@@ -1390,9 +1393,9 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                         full_label for key, full_label in season_priority
                         if key in ratings and ratings[key] >= 50
                     )
-                    print("Filtered Ratings:", ratings)
+                    print("Filtered Ratings:", ratings, flush=True)
                     if ratings_over_50:
-                        print("Seasons with ≥50% width:", ratings_over_50)
+                        print("Seasons with ≥50% width:", ratings_over_50, flush=True)
                         data["siezon_425"] = ratings_over_50
                     else:
                         errors.append("Не вдалося знайти сезони з шириною ≥50%")
@@ -1436,14 +1439,14 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             
                     if description_block:
                         fragrantica_description = description_block.get_text(separator=" ", strip=True)
-                        print(fragrantica_description)
+                        print(fragrantica_description, flush=True)
                     else:
                         errors.append("Не вдалося знайти опис на fragrantica.ua(для нот та типу аромата")
                         print("Description not found")
             
                     def format_notes(desc):
                         desc = re.sub(r'\s+', ' ', desc).strip()
-                        print("formating")
+                        print("formating", flush=True)
             
                         patterns = {
                             "Верхні ноти": r"(?:верхн(?:і|я)\s+ноти?|початков(?:і|а)\s+ноти?)\s*[:：]?\s*([^\.;]+)",
@@ -1484,7 +1487,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                         if year:
                             data["god_vypuska_270"] = year.group()
                             print(year.group())
-                        print(f"notes 1:{final_notes}")
+                        print(f"notes 1:{final_notes}", flush=True)
                         print(is_valid_notes(final_notes))
                             
                     if final_notes:
@@ -1581,7 +1584,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                             for item in items2:
                                 if item.get("@type") == "Product":
                                     description_html_ru = unescape(item["description"]).strip()
-                                    print("Found product description!")
+                                    print("Found product description!", flush=True)
                                     break
                             if description_html_ru:
                                 break
@@ -1681,7 +1684,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
         custom_fields_array = [{"name": k, "value": str(v)} for k, v in data.items() if v is not None]
         print(custom_fields_array)
-        print(json.dumps(data, ensure_ascii=False, indent=4))
+        print(json.dumps(data, ensure_ascii=False, indent=4), flush=True)
         def update_material(update_data):
             url = f"{KEEPIN_BASE}/materials/{identifier}"
             resp = requests.patch(url, headers=keepin_headers(), json=update_data, timeout=30)
@@ -1691,7 +1694,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         if errors:
             update_data = {"custom_fields": custom_fields_array}
             keepin_response = update_material(update_data)
-            print(errors)
+            print(errors, flush=True)
             print(debug_message)
             return errors, debug_message
         else:
@@ -1704,7 +1707,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         
         return None, None
     finally:
-        print("Run finished")
+        print("Run finished", flush=True)
 
 def get_materials(category_id):
     try:
@@ -1735,6 +1738,7 @@ def get_material_by_id(identifier):
         return {}  # safe fallback
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
+    asyncio.create_task(monitor_memory())
     async with fresh_browser() as browser:
         errors_from_run, debug_message = await main_func(
             browser, title, price, sku, identifier, target_id,

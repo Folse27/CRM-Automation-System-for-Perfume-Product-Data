@@ -604,15 +604,20 @@ LIMIT = 400 * 1024 * 1024  # 400 MB
 process = psutil.Process(os.getpid())
 
 async def monitor_memory():
-    while True:
-        mem = process.memory_info().rss
+    try:
+        while True:
+            mem = process.memory_info().rss
 
-        if mem > LIMIT:
-            print("WARNING: nearing memory limit", flush=True)
+            if mem > LIMIT:
+                print("WARNING: nearing memory limit", flush=True)
 
-        print(mem, flush=True)
+            print(mem, flush=True)
 
-        await asyncio.sleep(1)
+            await asyncio.sleep(1)
+
+    except asyncio.CancelledError:
+        print("Memory monitor stopped", flush=True)
+        raise
 
 
 @asynccontextmanager
@@ -1746,14 +1751,28 @@ def get_material_by_id(identifier):
         return {}  # safe fallback
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
-    async with fresh_browser() as browser:
-        errors_from_run, debug_message = await main_func(
-            browser, title, price, sku, identifier, target_id,
-            makeup_url, fragrantica_url, randewoo_url
-        )
-    gc.collect()
-    if errors_from_run:
-        await send_errors_to_telegram(errors_from_run, BOT_TOKEN, TARGET_GROUP_ID, debug_message)
+    monitor_task = asyncio.create_task(monitor_memory())
+
+    try:
+        async with fresh_browser() as browser:
+            errors_from_run, debug_message = await main_func(
+                browser, title, price, sku, identifier, target_id,
+                makeup_url, fragrantica_url, randewoo_url
+            )
+
+        gc.collect()
+
+        if errors_from_run:
+            await send_errors_to_telegram(
+                errors_from_run, BOT_TOKEN, TARGET_GROUP_ID, debug_message
+            )
+
+    finally:
+        monitor_task.cancel()
+        try:
+            await monitor_task
+        except asyncio.CancelledError:
+            pass
 
 async def process_category(category_id, target_id):
     material_data = get_materials(category_id)
@@ -1785,36 +1804,30 @@ async def trigger_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_lower = user_message.lower()
 
     if user_message == "Старт":
-        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Процесс запущено")
 
         # Run heavy code asynchronously
         asyncio.create_task(action_standart())
     elif user_message == "Старт1":
-        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Тест1 запущено")
 
         # Run heavy code asynchronously
         asyncio.create_task(action_standart("1"))
     elif user_message == "Старт2":
-        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Тест2 запущено")
 
         # Run heavy code asynchronously
         asyncio.create_task(action_standart("2"))
     elif user_message == "Тест":
-        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Тест запущено")
 
     elif "назва" in text_lower and "id" in text_lower and not "makeup url" in text_lower and not "fragrantica url" in text_lower:
-        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Сообщение содержит 'Назва' и 'id'")
         
         product, identifier = await get_product_and_id_from_text(user_message)
         print(product, identifier)
         asyncio.create_task(action_manual_name_and_id(product, identifier))
     elif "id" in text_lower and "makeup url" in text_lower or "fragrantica url" in text_lower or "randewoo url" in text_lower:
-        asyncio.create_task(monitor_memory())
         await update.message.reply_text("✅ Сообщение содержит 'id' и 'urls'")
         product, identifier, makeup_url, fragrantica_url, randewoo_url = await get_id_and_urls_from_text(user_message)
         print(product, identifier, makeup_url, fragrantica_url, randewoo_url)

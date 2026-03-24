@@ -1025,42 +1025,71 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 normalized_brand = normalize(FRAGRANTICA_BRANDS[brand])
             else:
                 normalized_brand = normalize(brand)
-            tokens = re.sub(r"[’'`]", "", model.lower()).split()
-    
+            tokens = set(re.sub(r"[’'`]", "", model.lower()).split())
+
+            extended_terms = set()
+            use_extended = False
+            
+            if concentration in PRODUCT_TYPE_EXTENDED_TERMS:
+                extended_terms = {t.lower() for t in PRODUCT_TYPE_EXTENDED_TERMS[concentration]}
+                use_extended = True
+            
+            fallback_candidate = None
+            
             for hit in hits:
                 hit_brand = normalize(hit.get("dizajner"))
                 hit_name = normalize(hit.get("naslov"))
-                print(normalized_brand, hit_brand, tokens, hit_name, flush=True)
-    
-                # Check both brand and model match
-                hit_tokens = set(normalize(hit_name).split())
-                token_set = set(tokens)
-                
-                match = False
-                
-                if hit_tokens == token_set:
-                    match = True
-                
-                elif concentration in PRODUCT_TYPE_EXTENDED_TERMS:
-                    extended = {t.lower() for t in PRODUCT_TYPE_EXTENDED_TERMS[concentration]}
-                    if hit_tokens == token_set | extended:
-                        match = True
-                
-                if normalized_brand == hit_brand and match:
-                    print("MATCHED BOTH", flush=True)
-                    url_field = hit.get("url")
-    
-                    if isinstance(url_field, dict):
-                        if "UK" in url_field and url_field["UK"]:
-                            print("FOUND UK INSTANCE", flush=True) 
-                            return url_field["UK"][0]
-    
-                        first_locale = next(iter(url_field.values()))
-                        print("FOUND FIRST INSTANCE", flush=True) 
-                        return first_locale[0]
-
-                print("FOUND NO INSTANCE", flush=True) 
-    
+                hit_tokens = set(hit_name.split())
+            
+                print(normalized_brand, hit_brand, tokens, hit_tokens, flush=True)
+            
+                if normalized_brand != hit_brand:
+                    continue
+            
+                # ---- PRIORITY MATCH: tokens + concentration (exact) ----
+                if use_extended:
+                    expected_tokens = tokens | extended_terms
+            
+                    if hit_tokens == expected_tokens:
+                        print("MATCHED WITH CONCENTRATION (EXACT)", flush=True)
+                        url_field = hit.get("url")
+            
+                        if isinstance(url_field, dict):
+                            if "UK" in url_field and url_field["UK"]:
+                                return url_field["UK"][0]
+            
+                            first_locale = next(iter(url_field.values()))
+                            return first_locale[0]
+            
+                    # Save fallback if it matches tokens only
+                    if hit_tokens == tokens:
+                        fallback_candidate = hit
+            
+                else:
+                    # ---- NO CONCENTRATION CASE ----
+                    if hit_tokens == tokens:
+                        print("MATCHED TOKENS ONLY (EXACT)", flush=True)
+                        url_field = hit.get("url")
+            
+                        if isinstance(url_field, dict):
+                            if "UK" in url_field and url_field["UK"]:
+                                return url_field["UK"][0]
+            
+                            first_locale = next(iter(url_field.values()))
+                            return first_locale[0]
+            
+            # ---- FALLBACK EXECUTION ----
+            if fallback_candidate:
+                print("FALLBACK MATCH (TOKENS ONLY, EXACT)", flush=True)
+                url_field = fallback_candidate.get("url")
+            
+                if isinstance(url_field, dict):
+                    if "UK" in url_field and url_field["UK"]:
+                        return url_field["UK"][0]
+            
+                    first_locale = next(iter(url_field.values()))
+                    return first_locale[0]
+            
             return None
     
         exact_collection = ""

@@ -44,14 +44,14 @@ print(TARGET_GROUP_ID)
 
 PRODUCT_TYPE_TERMS = {
     "Парфум": ["elixir de parfum", "extrait de parfum", "parfum"],
-    "Парфумована вода": ["edp", "eau de parfum"],
-    "Туалетна вода": ["edt", "eau de toilette"],
-    "Одеколон": ["edc", "eau de cologne"],
+    "Парфумована вода": ["edp"],
+    "Туалетна вода": ["edt"],
+    "Одеколон": ["edc"],
     "Роликові парфуми": ["roll-on"],
     "Гель для душу": ["sh", "gel"],
     "Лосьйон для тіла": ["b", "lot"],
-    "Бальзам після гоління": ["ah", "balm"],
-    "Лосьйон після гоління": ["ah", "lotion"],
+    "Бальзам після гоління": ["balm"],
+    "Лосьйон після гоління": ["lotion"],
     "Дезодорант-стік": ["deo-stick"],
     "Дезодорант-спрей": ["deo-spray"],
 }
@@ -1019,7 +1019,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 print(normalized_brand, hit_brand, tokens, hit_name, flush=True)
     
                 # Check both brand and model match
-                if normalized_brand == hit_brand and all(token in normalize(hit_name) for token in tokens):
+                if normalized_brand == hit_brand and set(normalize(hit_name).split()) == set(tokens):
                     print("MATCHED BOTH", flush=True)
                     url_field = hit.get("url")
     

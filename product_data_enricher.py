@@ -1066,6 +1066,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                         print("MATCHED WITH CONCENTRATION (EXACT)", flush=True)
                         url_field = hit.get("url")
                         if isinstance(url_field, dict):
+                            print(url_field, flush=True)
                             if "UK" in url_field and url_field["UK"]:
                                 print("FOUND UK INSTANCE", flush=True)
                                 return url_field["UK"][0]
@@ -1082,6 +1083,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                         print("MATCHED TOKENS ONLY (EXACT)", flush=True)
                         url_field = hit.get("url")
                         if isinstance(url_field, dict):
+                            print(url_field, flush=True)
                             if "UK" in url_field and url_field["UK"]:
                                 print("FOUND UK INSTANCE", flush=True)
                                 return url_field["UK"][0]

@@ -57,9 +57,9 @@ PRODUCT_TYPE_TERMS = {
 }
 
 PRODUCT_TYPE_EXTENDED_TERMS = {
-    "Eau de Parfum": ["edp"],
-    "Eau de Toilette": ["edt"],
-    "Eau de Cologne": ["edc"],
+    "Eau de Parfum": ["Парфумована вода"],
+    "Eau de Toilette": ["Туалетна вода"],
+    "Eau de Cologne": ["Одеколон"],
 }
 
 PTT_2 = {
@@ -1276,7 +1276,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
         print(f"FRAGRANTICA{fragrantica_url}", flush=True)
         if search_name and not fragrantica_url:
-            fragrantica_url = await find_fragrantica_url(browser, search_name, brand, exact_collection)
+            fragrantica_url = await find_fragrantica_url(browser, search_name, brand, exact_collection, product_type)
     
         if fragrantica_url:
             debug_message.append(f"fragrantica url: {fragrantica_url}")

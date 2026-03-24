@@ -56,6 +56,12 @@ PRODUCT_TYPE_TERMS = {
     "Дезодорант-спрей": ["deo-spray"],
 }
 
+PRODUCT_TYPE_EXTENDED_TERMS = {
+    "Eau de Parfum": ["edp"],
+    "Eau de Toilette": ["edt"],
+    "Eau de Cologne": ["edc"],
+}
+
 PTT_2 = {
     "Спрей": ["spray"]
 }
@@ -961,7 +967,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         
             return result if result else None
                 
-        async def find_fragrantica_url(browser, product_name, brand, model):
+        async def find_fragrantica_url(browser, product_name, brand, model, concentration):
             ALGOLIA_API_KEY = None  # initialize first
             creds = await get_algolia_key(browser)
             if creds:
@@ -1022,7 +1028,20 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 print(normalized_brand, hit_brand, tokens, hit_name, flush=True)
     
                 # Check both brand and model match
-                if normalized_brand == hit_brand and set(normalize(hit_name).split()) == set(tokens):
+                hit_tokens = set(normalize(hit_name).split())
+                token_set = set(tokens)
+                
+                match = False
+                
+                if hit_tokens == token_set:
+                    match = True
+                
+                elif concentration in PRODUCT_TYPE_EXTENDED_TERMS:
+                    extended = {t.lower() for t in PRODUCT_TYPE_EXTENDED_TERMS[concentration]}
+                    if hit_tokens == token_set | extended:
+                        match = True
+                
+                if normalized_brand == hit_brand and match:
                     print("MATCHED BOTH", flush=True)
                     url_field = hit.get("url")
     

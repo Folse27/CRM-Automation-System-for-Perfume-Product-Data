@@ -1064,18 +1064,10 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     
                     if hit_tokens == expected_tokens:
                         print("MATCHED WITH CONCENTRATION (EXACT)", flush=True)
-                        print("FULL HIT:", hit, flush=True)
-                        url_field = hit.get("url")
-                        print("URL FIELD TYPE:", type(url_field), "VALUE:", url_field, flush=True)
-                        if isinstance(url_field, dict):
-                            print(url_field, flush=True)
-                            if "UK" in url_field and url_field["UK"]:
-                                print("FOUND UK INSTANCE", flush=True)
-                                return url_field["UK"][0]
-                            first_locale = next(iter(url_field.values()))
-                            print("FOUND INSTANCE", flush=True)
-                            return first_locale[0]
-                        print("NO FOUND INSTANCE", flush=True)
+                        slug = hit.get("slug")
+                        website_id = hit.get('id')
+                        if slug and website_id:
+                            return f"https://www.fragrantica.ua/perfume/{slug}-{website_id}.html"
             
                     if hit_tokens == tokens:
                         fallback_candidate = hit
@@ -1083,17 +1075,10 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 else:
                     if hit_tokens == tokens:
                         print("MATCHED TOKENS ONLY (EXACT)", flush=True)
-                        url_field = hit.get("url")
-                        print("URL FIELD TYPE:", type(url_field), "VALUE:", url_field, flush=True)
-                        if isinstance(url_field, dict):
-                            print(url_field, flush=True)
-                            if "UK" in url_field and url_field["UK"]:
-                                print("FOUND UK INSTANCE", flush=True)
-                                return url_field["UK"][0]
-                            first_locale = next(iter(url_field.values()))
-                            print("FOUND INSTANCE", flush=True)
-                            return first_locale[0]
-                        print("NO FOUND INSTANCE", flush=True)
+                        slug = hit.get("slug")
+                        website_id = hit.get('id')
+                        if slug and website_id:
+                            return f"https://www.fragrantica.ua/perfume/{slug}-{website_id}.html"
     
         exact_collection = ""
         brand = ""

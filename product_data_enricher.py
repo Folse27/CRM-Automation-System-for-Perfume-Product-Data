@@ -234,7 +234,7 @@ PERFUME_BRANDS = {
     "Lolita Lempicka": [],
     "Louis Vuitton": [],
     "Maison Crivelli": [],
-    "Maison Francis Kurkdjian": ["M.F.KURKDJIAN", "M. F. KURKDJIAN"],
+    "Maison Francis Kurkdjian": ["M.F.KURKDJIAN", "M. F. KURKDJIAN", "Maison Francis Kurkdjian Paris"],
     "Mancera": [],
     "Mandarina Duck": [],
     "Marc Jacobs": [],
@@ -1151,7 +1151,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         for ptype, terms in PRODUCT_TYPE_TERMS.items():
             if product:
                 if any(term in product for term in terms):
-                    print(term, product, flush=True)
                     product_type = ptype
                     break
     

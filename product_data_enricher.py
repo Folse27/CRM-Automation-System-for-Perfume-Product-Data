@@ -1064,6 +1064,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 print(normalized_brand, hit_brand, tokens, hit_tokens, flush=True)
             
                 if normalized_brand != hit_brand:
+                    print(f"BRAND MISMATCH: expected '{normalized_brand}' got '{hit_brand}'", flush=True)
                     continue
             
                 if use_extended:

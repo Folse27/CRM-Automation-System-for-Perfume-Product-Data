@@ -1068,8 +1068,9 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     continue
             
                 if use_extended:
-                    expected_tokens = tokens | extended_tokens  # ✅ fix Bug 1
-            
+                    expected_tokens = tokens | extended_tokens
+                    print("EXPECTED TOKENS:", expected_tokens, flush=True)  # add this
+                    
                     if hit_tokens == expected_tokens:
                         print("MATCHED WITH CONCENTRATION (EXACT)", flush=True)
                         url_field = hit.get("url")

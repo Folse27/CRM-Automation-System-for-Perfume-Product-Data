@@ -827,16 +827,18 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             brand_found = None
     
             for brand, aliases in PERFUME_BRANDS.items():
-                # Only uppercase the aliases, NOT the official brand name
-                alias_keys = [alias.upper() for alias in aliases]
-                
+                # Create a list of things to check: aliases first, then the brand itself
+                alias_keys = [alias.upper() for alias in aliases]  # aliases first
+                alias_keys.append(brand.upper())  # brand itself last
+        
                 for alias in alias_keys:
                     if material_name_upper.startswith(alias):
                         brand_found = brand
+                        # remove the matched alias/brand from the original string
                         original = original[len(alias):].strip()
                         material_name_upper = original.upper()
-                        break
-            
+                        break  # stop after first match
+        
                 if brand_found:
                     break
 

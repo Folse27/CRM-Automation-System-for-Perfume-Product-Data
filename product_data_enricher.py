@@ -1064,6 +1064,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     
                     if hit_tokens == expected_tokens:
                         print("MATCHED WITH CONCENTRATION (EXACT)", flush=True)
+                        print("FULL HIT:", hit, flush=True)
                         url_field = hit.get("url")
                         print("URL FIELD TYPE:", type(url_field), "VALUE:", url_field, flush=True)
                         if isinstance(url_field, dict):

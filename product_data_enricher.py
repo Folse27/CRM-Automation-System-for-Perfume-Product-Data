@@ -1147,7 +1147,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         product_type = ""
         for ptype, terms in PRODUCT_TYPE_TERMS.items():
             if product:
-                if any(term.lower() in product for term in terms):
+                if any(term in product for term in terms):
+                    print(term, product, flush=True)
                     product_type = ptype
                     break
     

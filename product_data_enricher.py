@@ -752,16 +752,25 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         debug_message = []
     
         def normalize(text):
-            """Lowercase, remove accents, and strip non-alphanumeric characters."""
+            """Lowercase, strip punctuation, keep all letters (including Ukrainian)."""
             if not text:
                 return ""
                 
+            # Normalize Unicode (accents etc.)
             text = unicodedata.normalize("NFKD", str(text))
-            text = text.encode("ascii", "ignore").decode()
+            
+            # Lowercase
             text = text.lower()
+            
+            # Remove quotes/apostrophes
             text = re.sub(r"[’'`]", "", text)
-            text = re.sub(r"[^a-z0-9 ]", "", text)
+            
+            # Remove all other non-alphanumeric characters except spaces
+            text = re.sub(r"[^a-zа-яёіїєґ0-9 ]", "", text, flags=re.IGNORECASE)
+            
+            # Normalize spaces
             text = re.sub(r"\s+", " ", text).strip()
+            
             return text
     
         def find_product_url(brand, model, concentration, volume):
@@ -1025,13 +1034,24 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 normalized_brand = normalize(FRAGRANTICA_BRANDS[brand])
             else:
                 normalized_brand = normalize(brand)
+            # Convert Ukrainian concentration into English term used in Fragrantica
+            def map_concentration_to_fragrantica(concentration):
+                for eng, ukrainian_list in PRODUCT_TYPE_EXTENDED_TERMS.items():
+                    if concentration in ukrainian_list:
+                        return eng
+                return None  # not found
+            
+            # ---- inside your function ----
             tokens = set(re.sub(r"[’'`]", "", model.lower()).split())
-
-            extended_terms = set()
+            
+            # map Ukrainian input to English concentration
+            fragrantica_concentration = map_concentration_to_fragrantica(concentration)
+            extended_tokens = set()
             use_extended = False
             
-            if concentration in PRODUCT_TYPE_EXTENDED_TERMS:
-                extended_terms = {t.lower() for t in PRODUCT_TYPE_EXTENDED_TERMS[concentration]}
+            if fragrantica_concentration:
+                # split English concentration into tokens
+                extended_tokens = set(re.sub(r"[’'`]", "", fragrantica_concentration.lower()).split())
                 use_extended = True
             
             fallback_candidate = None

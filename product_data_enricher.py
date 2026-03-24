@@ -1070,7 +1070,11 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                             return f"https://www.fragrantica.ua/perfume/{slug}-{website_id}.html"
             
                     if hit_tokens == tokens:
-                        fallback_candidate = hit
+                        print("MATCHED TOKENS ONLY (BUT CONCENTRATION EXISTS) (EXACT)", flush=True)
+                        slug = hit.get("slug")
+                        website_id = hit.get('id')
+                        if slug and website_id:
+                            return f"https://www.fragrantica.ua/perfume/{slug}-{website_id}.html"
             
                 else:
                     if hit_tokens == tokens:

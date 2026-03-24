@@ -1066,51 +1066,30 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 if normalized_brand != hit_brand:
                     continue
             
-                # ---- PRIORITY MATCH: tokens + concentration (exact) ----
                 if use_extended:
-                    expected_tokens = tokens | extended_terms
+                    expected_tokens = tokens | extended_tokens  # ✅ fix Bug 1
             
                     if hit_tokens == expected_tokens:
                         print("MATCHED WITH CONCENTRATION (EXACT)", flush=True)
                         url_field = hit.get("url")
-            
                         if isinstance(url_field, dict):
                             if "UK" in url_field and url_field["UK"]:
                                 return url_field["UK"][0]
-            
                             first_locale = next(iter(url_field.values()))
                             return first_locale[0]
             
-                    # Save fallback if it matches tokens only
                     if hit_tokens == tokens:
                         fallback_candidate = hit
             
                 else:
-                    # ---- NO CONCENTRATION CASE ----
                     if hit_tokens == tokens:
                         print("MATCHED TOKENS ONLY (EXACT)", flush=True)
                         url_field = hit.get("url")
-            
                         if isinstance(url_field, dict):
                             if "UK" in url_field and url_field["UK"]:
                                 return url_field["UK"][0]
-            
                             first_locale = next(iter(url_field.values()))
                             return first_locale[0]
-            
-            # ---- FALLBACK EXECUTION ----
-            if fallback_candidate:
-                print("FALLBACK MATCH (TOKENS ONLY, EXACT)", flush=True)
-                url_field = fallback_candidate.get("url")
-            
-                if isinstance(url_field, dict):
-                    if "UK" in url_field and url_field["UK"]:
-                        return url_field["UK"][0]
-            
-                    first_locale = next(iter(url_field.values()))
-                    return first_locale[0]
-            
-            return None
     
         exact_collection = ""
         brand = ""

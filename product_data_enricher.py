@@ -752,23 +752,14 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         debug_message = []
     
         def normalize(text):
-            """Lowercase, strip punctuation, keep all letters (including Ukrainian)."""
             if not text:
                 return ""
-                
-            # Normalize Unicode (accents etc.)
+            
             text = unicodedata.normalize("NFKD", str(text))
-            
-            # Lowercase
             text = text.lower()
-            
-            # Remove quotes/apostrophes
-            text = re.sub(r"[’'`]", "", text)
-            
-            # Remove all other non-alphanumeric characters except spaces
+            text = re.sub(r"[''`]", "", text)
+            text = re.sub(r"\s*&\s*", "", text)  # remove & and surrounding spaces
             text = re.sub(r"[^a-zа-яёіїєґ0-9 ]", "", text, flags=re.IGNORECASE)
-            
-            # Normalize spaces
             text = re.sub(r"\s+", " ", text).strip()
             
             return text

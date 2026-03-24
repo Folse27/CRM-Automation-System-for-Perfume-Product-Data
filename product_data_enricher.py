@@ -1052,10 +1052,14 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
                     if isinstance(url_field, dict):
                         if "UK" in url_field and url_field["UK"]:
+                            print("FOUND UK INSTANCE", flush=True) 
                             return url_field["UK"][0]
     
                         first_locale = next(iter(url_field.values()))
+                        print("FOUND FIRST INSTANCE", flush=True) 
                         return first_locale[0]
+
+                print("FOUND NO INSTANCE", flush=True) 
     
             return None
     

@@ -833,20 +833,18 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             all_product_terms = []
             for category, aliases in PRODUCT_TYPE_TERMS.items():
                 for alias in aliases:
-                    all_product_terms.append((alias.lower(), category))
+                    all_product_terms.append((alias, category))
     
             # 🔥 Sort by length → longest phrases first (CRITICAL)
             all_product_terms.sort(key=lambda x: len(x[0]), reverse=True)
     
-            original_lower = original.lower()
-    
             for phrase, category in all_product_terms:
                 pattern = re.escape(phrase)
-                if re.search(pattern, original_lower):
+                if re.search(pattern, original):
                     product_type_found = category
     
                     # remove only first occurrence
-                    original = re.sub(pattern, '', original, count=1, flags=re.IGNORECASE)
+                    original = re.sub(pattern, '', original, count=1)
                     break
     
             # 3️⃣ Tokenization AFTER phrase removal

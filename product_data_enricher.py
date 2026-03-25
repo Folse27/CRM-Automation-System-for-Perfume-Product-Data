@@ -1223,12 +1223,14 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 break
     
         if product_type:
-            data["vid_parfiumiernoi_produktsii_271"] = product_type
             if product_type == "Парфум":
+                data["vid_parfiumiernoi_produktsii_271"] = "Парфуми"
                 if sex in ["для жінок", "унісекс"]:
                     product_type = "Парфуми"
                 else:
                     product_type = "Парфум"
+            else:
+                data["vid_parfiumiernoi_produktsii_271"] = product_type
         else:
             errors.append("Не вдалось визначити поле Вид парфюмерной продукции")
     

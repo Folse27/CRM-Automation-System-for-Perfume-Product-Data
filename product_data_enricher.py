@@ -162,7 +162,7 @@ PERFUME_BRANDS = {
     "Britney Spears": [],
     "Brunello Cucinelli": [],
     "Burberry": [],
-    "Bvlgari": ["BVL"],
+    "Bvlgari": ["Bvlgari", "BVL"],
     "Byredo": [],
     "Cacharel": [],
     "Calvin Klein": ["CK"],
@@ -248,7 +248,7 @@ PERFUME_BRANDS = {
     "Marc-Antoine Barrois": [],
     "Marina De Bourbon": ["M. DE BOURBON"],
     "Matiere Premiere": [],
-    "Memo Paris": ["MEMO", "MEMO PARIS"],
+    "Memo": ["Memo paris"],
     "Mercedes Benz": [],
     "Min New York": [],
     "Montblanc": ["MONT BLANC"],
@@ -583,6 +583,7 @@ FRAGRANTICA_BRANDS = {
     "By Kilian": ["Kilian"],
     "Floraïku": ["Floraiku"],
     "Lacoste": ["Lacoste Fragrances"],
+    "Liquides Imaginaires": ["Les Liquides Imaginaires"],
 }
 
 UKR_TO_RU = {
@@ -789,20 +790,22 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             products = soup.select("li.simple-slider-list__item")
             del soup
     
-            brand = brand.lower().strip().replace(" ", "")
+            brand = re.sub(r"[''`ʼ]", "", unicodedata.normalize("NFKD", brand).lower().strip().replace(" ", ""))
             tokens = re.sub(r"[’'`]", "", model.lower()).split()
     
     
             for product in products:
                 # 1️⃣ Match brand from data-brand attribute
-                product_brand = product.get("data-brand", "").lower().strip().replace(" ", "")
+                product_brand = re.sub(r"[''`ʼ]", "", unicodedata.normalize("NFKD", product.get("data-brand", "")).lower().strip().replace(" ", ""))
     
                 if brand not in product_brand:
+                    print("SKIPPING BRAND IN MAKEUP PAGE SEARCH", flush=True)
                     continue  # brand doesn't match → skip
     
                 # 2️⃣ Match model from visible title
                 name_tag = product.select_one("a.simple-slider-list__name")
                 if not name_tag:
+                    print("COULDN'T FIND MODEL MAKEUP PAGE SEARCH", flush=True)
                     continue
     
                 text = name_tag.text
@@ -998,7 +1001,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     {
                         "indexName": "fragrantica_perfumes",
                         "query": product_name,
-                        "params": "hitsPerPage=5"
+                        "params": "hitsPerPage=15"
                     }
                 ]
             }

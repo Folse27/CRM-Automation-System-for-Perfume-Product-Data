@@ -1053,7 +1053,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             
             fallback_candidate = None
             
-            for hit in hits:
+            for hit in hits and use_extended:
                 hit_brand = normalize(hit.get("dizajner"))
                 hit_name = normalize(hit.get("naslov"))
                 hit_tokens = set(hit_name.split())
@@ -1064,31 +1064,33 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     print(f"BRAND MISMATCH: expected '{normalized_brand}' got '{hit_brand}'", flush=True)
                     continue
             
-                if use_extended:
-                    expected_tokens = tokens | extended_tokens
-                    print("EXPECTED TOKENS:", expected_tokens, flush=True)  # add this
-                    
-                    if hit_tokens == expected_tokens:
-                        print("MATCHED WITH CONCENTRATION (EXACT)", flush=True)
-                        slug = hit.get("slug")
-                        website_id = hit.get('id')
-                        if slug and website_id:
-                            return f"https://www.fragrantica.ua/perfume/{slug}-{website_id}.html"
+                expected_tokens = tokens | extended_tokens
+                print("EXPECTED TOKENS:", expected_tokens, flush=True)  # add this
+                
+                if hit_tokens == expected_tokens:
+                    print("MATCHED WITH CONCENTRATION (EXACT)", flush=True)
+                    slug = hit.get("slug")
+                    website_id = hit.get('id')
+                    if slug and website_id:
+                        return f"https://www.fragrantica.ua/perfume/{slug}-{website_id}.html"
+                        
+            for hit in hits:
+                hit_brand = normalize(hit.get("dizajner"))
+                hit_name = normalize(hit.get("naslov"))
+                hit_tokens = set(hit_name.split())
             
-                    if hit_tokens == tokens:
-                        print("MATCHED TOKENS ONLY (BUT CONCENTRATION EXISTS) (EXACT)", flush=True)
-                        slug = hit.get("slug")
-                        website_id = hit.get('id')
-                        if slug and website_id:
-                            return f"https://www.fragrantica.ua/perfume/{slug}-{website_id}.html"
+                print(normalized_brand, hit_brand, tokens, hit_tokens, flush=True)
             
-                else:
-                    if hit_tokens == tokens:
-                        print("MATCHED TOKENS ONLY (EXACT)", flush=True)
-                        slug = hit.get("slug")
-                        website_id = hit.get('id')
-                        if slug and website_id:
-                            return f"https://www.fragrantica.ua/perfume/{slug}-{website_id}.html"
+                if normalized_brand != hit_brand:
+                    print(f"BRAND MISMATCH: expected '{normalized_brand}' got '{hit_brand}'", flush=True)
+                    continue
+                            
+                if hit_tokens == tokens:
+                    print("MATCHED TOKENS ONLY (EXACT)", flush=True)
+                    slug = hit.get("slug")
+                    website_id = hit.get('id')
+                    if slug and website_id:
+                        return f"https://www.fragrantica.ua/perfume/{slug}-{website_id}.html"
     
         exact_collection = ""
         brand = ""

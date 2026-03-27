@@ -248,7 +248,7 @@ PERFUME_BRANDS = {
     "Marc-Antoine Barrois": [],
     "Marina De Bourbon": ["M. DE BOURBON"],
     "Matiere Premiere": [],
-    "Memo paris": ["Memo"],
+    "Memo Paris": ["Memo"],
     "Mercedes Benz": [],
     "Min New York": [],
     "Montblanc": ["MONT BLANC"],

@@ -291,7 +291,7 @@ PERFUME_BRANDS = {
     "Sospiro": [],
     "Mugler": ["Thierry Mugler"],
     "Thomas Kosmala": [],
-    "Tiffany": ["TIFFANY & CO"],
+    "Tiffany & Co": ["Tiffany, TIFFANY & CO"],
     "Tiziana Terenzi": [],
     "Tom Ford": [],
     "Trussardi": [],
@@ -582,6 +582,7 @@ FRAGRANTICA_BRANDS = {
     "Viktor&Rolf": ["Viktor & Rolf"],
     "By Kilian": ["Kilian"],
     "Floraïku": ["Floraiku"],
+    "Lacoste": ["Lacoste Fragrances"],
 }
 
 UKR_TO_RU = {
@@ -901,7 +902,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     continue
     
                 # ❌ Remove standalone units
-                if token_lower in ['ml', 'g', 'oz', 'spray']:
+                if token_lower in ['ml', 'g', 'oz', 'spray', 'new']:
                     i += 1
                     continue
     

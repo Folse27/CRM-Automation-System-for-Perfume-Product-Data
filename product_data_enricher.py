@@ -248,7 +248,7 @@ PERFUME_BRANDS = {
     "Marc-Antoine Barrois": [],
     "Marina De Bourbon": ["M. DE BOURBON"],
     "Matiere Premiere": [],
-    "Memo": ["Memo paris"],
+    "Memo paris": ["Memo"],
     "Mercedes Benz": [],
     "Min New York": [],
     "Montblanc": ["MONT BLANC"],
@@ -797,6 +797,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             for product in products:
                 # 1️⃣ Match brand from data-brand attribute
                 product_brand = re.sub(r"[''`ʼ]", "", unicodedata.normalize("NFKD", product.get("data-brand", "")).lower().strip().replace(" ", ""))
+                print(brand, product_brand, flush=True)
     
                 if brand not in product_brand:
                     print("SKIPPING BRAND IN MAKEUP PAGE SEARCH", flush=True)
@@ -813,7 +814,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 text = text.encode("ascii", "ignore").decode()
     
                 product_title = re.sub(r"[’'`]", "", text.lower())
-                print(tokens, product_title)
+                print(tokens, product_title, flush=True)
                 if not all(token in product_title for token in tokens):
                     continue
     
@@ -832,8 +833,9 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
             for brand, aliases in PERFUME_BRANDS.items():
                 # Create a list of things to check: aliases first, then the brand itself
-                alias_keys = [alias.upper() for alias in aliases]  # aliases first
-                alias_keys.append(brand.upper())  # brand itself last
+                alias_keys = [alias.upper() for alias in aliases if alias.strip()]  # skip empty
+                alias_keys.append(brand.upper())
+                alias_keys.sort(key=len, reverse=True)  # longest first
         
                 for alias in alias_keys:
                     if material_name_upper.startswith(alias):

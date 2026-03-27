@@ -790,14 +790,13 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             products = soup.select("li.simple-slider-list__item")
             del soup
     
-            brand = re.sub(r"[''`ʼ]", "", unicodedata.normalize("NFKD", brand).lower().strip().replace(" ", ""))
+            brand = re.sub(r"[''`\u2019\u2018]", "", unicodedata.normalize("NFKD", brand).lower().strip().replace(" ", ""))
             tokens = re.sub(r"[’'`]", "", model.lower()).split()
     
     
             for product in products:
                 # 1️⃣ Match brand from data-brand attribute
-                product_brand = re.sub(r"[''`ʼ]", "", unicodedata.normalize("NFKD", product.get("data-brand", "")).lower().strip().replace(" ", ""))
-                print(brand, product_brand, flush=True)
+                product_brand = re.sub(r"[''`\u2019\u2018]", "", unicodedata.normalize("NFKD", product.get("data-brand", "")).lower().strip().replace(" ", ""))
     
                 if brand not in product_brand:
                     print("SKIPPING BRAND IN MAKEUP PAGE SEARCH", flush=True)

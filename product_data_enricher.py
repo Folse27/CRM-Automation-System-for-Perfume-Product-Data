@@ -584,6 +584,12 @@ FRAGRANTICA_BRANDS = {
     "Floraïku": ["Floraiku"],
     "Lacoste": ["Lacoste Fragrances"],
     "Liquides Imaginaires": ["Les Liquides Imaginaires"],
+    "Mercedes Benz": ["Mercedes-Benz"],
+}
+
+MAKEUP_BRANDS = {
+    "Memo": ["Memo Paris"],
+    "Haute Fragrance Company": ["Haute Fragrance Company HFC"],
 }
 
 UKR_TO_RU = {
@@ -768,8 +774,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
         def find_product_url(brand, model, concentration, volume):
             base_url = "https://makeup.com.ua"
-            if brand == "Haute Fragrance Company HFC":
-                brand = brand.replace("HFC", "")
+            if brand in MAKEUP_BRANDS:
+                brand = MAKEUP_BRANDS[brand]
             search_string = f"{brand} {model} {concentration} {volume}"
             print(search_string)
             query = quote_plus(search_string)
@@ -1285,12 +1291,18 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         print(f"volume: {volume}")
         search_name = ""
         if brand and exact_collection:
-           if brand in CLASSIFICATION:
-               print(brand, CLASSIFICATION[brand])
-               data["klassifikatsiia_272"] = CLASSIFICATION[brand]
-           components = [brand, exact_collection]
-           search_name = " ".join([comp for comp in components if comp])
-           print(search_name, flush=True)
+            fragrantica_brand = ""
+            if brand in FRAGRANTICA_BRANDS:
+                fragrantica_brand = FRAGRANTICA_BRANDS[brand]
+            else:
+                fragrantica_brand = brand
+            if fragrantica_brand in CLASSIFICATION:
+                print(fragrantica_brand, CLASSIFICATION[fragrantica_brand])
+                data["klassifikatsiia_272"] = CLASSIFICATION[fragrantica_brand]
+               
+            components = [fragrantica_brand, exact_collection]
+            search_name = " ".join([comp for comp in components if comp])
+            print(search_name, flush=True)
         if product_type and sex and brand and exact_collection and volume:
             components = [special_mark, product_type, sex, brand, exact_collection, volume]
             name_checkbox = " ".join([comp for comp in components if comp])

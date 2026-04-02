@@ -579,19 +579,19 @@ CLASSIFICATION = {
 }
 
 FRAGRANTICA_BRANDS = {
-    "Viktor&Rolf": ["Viktor & Rolf"],
-    "By Kilian": ["Kilian"],
-    "Floraïku": ["Floraiku"],
-    "Lacoste": ["Lacoste Fragrances"],
-    "Liquides Imaginaires": ["Les Liquides Imaginaires"],
-    "Mercedes Benz": ["Mercedes-Benz"],
-    "Paco Rabanne": ["Rabanne"],
-    "27 87 Perfumes": ["27 87"],
+    "Viktor & Rolf": "Viktor&Rolf",
+    "Kilian": "By Kilian",
+    "Floraïku": "Floraiku",
+    "Lacoste ": "Lacoste Fragrances",
+    "Liquides Imaginaires": "Les Liquides Imaginaires",
+    "Mercedes Benz": "Mercedes-Benz",
+    "Paco Rabanne": " Rabanne",
+    "27 87 Perfumes": "27 87",
 }
 
 MAKEUP_BRANDS = {
-    "Memo": ["Memo Paris"],
-    "Haute Fragrance Company": ["Haute Fragrance Company HFC"],
+    "Memo Paris": "Memo",
+    "Haute Fragrance Company HFC": "Haute Fragrance Company",
 }
 
 UKR_TO_RU = {

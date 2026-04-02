@@ -1832,12 +1832,7 @@ async def run_main(title, price, sku, identifier, target_id, makeup_url, fragran
             )
 
         gc.collect()
-
-        if errors_from_run:
-            await send_errors_to_telegram(
-                errors_from_run, BOT_TOKEN, TARGET_GROUP_ID, debug_message
-            )
-        else:
+        if not errors_from_run or errors_from_run == "":
             if CHAT_ID and CHAT_ID != "":
                 bot = Bot(token=bot_token)
                 print("SENDING SUCCESS MESSAGE")
@@ -1848,6 +1843,11 @@ async def run_main(title, price, sku, identifier, target_id, makeup_url, fragran
                     )
                 except Exception as e:
                     print("Failed to send message:", e)
+
+        if errors_from_run:
+            await send_errors_to_telegram(
+                errors_from_run, BOT_TOKEN, TARGET_GROUP_ID, debug_message
+            )
 
     finally:
         monitor_task.cancel()

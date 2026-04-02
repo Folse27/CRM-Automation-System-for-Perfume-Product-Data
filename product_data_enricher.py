@@ -1298,6 +1298,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 fragrantica_brand = FRAGRANTICA_BRANDS[brand]
             else:
                 fragrantica_brand = brand
+            print(brand, type(brand), flush=True)
+            print(fragrantica_brand, type(fragrantica_brand), flush=True)
             if fragrantica_brand in CLASSIFICATION:
                 print(fragrantica_brand, CLASSIFICATION[fragrantica_brand])
                 data["klassifikatsiia_272"] = CLASSIFICATION[fragrantica_brand]

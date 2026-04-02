@@ -215,7 +215,7 @@ PERFUME_BRANDS = {
     "Issey Miyake": [],
     "Jacques Bogart": ["BOGART"],
     "Jaguar": [],
-    "Jean Paul Gaultier": ["JPG"],
+    "Jean Paul Gaultier": ["J.P.Gaultier", "JPG"],
     "Jennifer Lopez": [],
     "Jil Sander": ["SUNDER"],
     "Jimmy Choo": [],
@@ -266,7 +266,7 @@ PERFUME_BRANDS = {
     "Paris Hilton": [],
     "Paloma Picasso": [],
     "Parfums De Marly": [],
-    "Penhaligon's": [],
+    "Penhaligon's": ["Penhaligon`s"],
     "Pepe Jeans": [],
     "Philipp Plein": [],
     "Pierre Balmain": [],
@@ -585,6 +585,8 @@ FRAGRANTICA_BRANDS = {
     "Lacoste": ["Lacoste Fragrances"],
     "Liquides Imaginaires": ["Les Liquides Imaginaires"],
     "Mercedes Benz": ["Mercedes-Benz"],
+    "Paco Rabanne": ["Rabanne"],
+    "27 87 Perfumes": ["27 87"],
 }
 
 MAKEUP_BRANDS = {
@@ -1832,22 +1834,23 @@ async def run_main(title, price, sku, identifier, target_id, makeup_url, fragran
             )
 
         gc.collect()
-        if not errors_from_run or errors_from_run == "":
-            if CHAT_ID and CHAT_ID != "":
-                bot = Bot(token=bot_token)
-                print("SENDING SUCCESS MESSAGE")
-                try:
-                    await bot.send_message(
-                        chat_id=CHAT_ID,
-                        text="✅Успішно опрацьовано"
-                    )
-                except Exception as e:
-                    print("Failed to send message:", e)
+        print(f"Chat id2:{CHAT_ID}")
 
         if errors_from_run:
             await send_errors_to_telegram(
                 errors_from_run, BOT_TOKEN, TARGET_GROUP_ID, debug_message
             )
+        else:
+            if CHAT_ID and CHAT_ID != "":
+                bot = Bot(token=bot_token)
+                    print("SENDING SUCCESS MESSAGE", flush=True)
+                    try:
+                        await bot.send_message(
+                            chat_id=CHAT_ID,
+                            text="✅Успішно опрацьовано"
+                        )
+                    except Exception as e:
+                        print("Failed to send message:", e)
 
     finally:
         monitor_task.cancel()

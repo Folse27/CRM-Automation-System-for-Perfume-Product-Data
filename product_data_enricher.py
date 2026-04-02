@@ -1819,6 +1819,8 @@ def get_material_by_id(identifier):
         print("Error fetching material:", e)
         return {}  # safe fallback
 
+CHAT_ID = ""
+
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
     monitor_task = asyncio.create_task(monitor_memory())
 
@@ -1835,6 +1837,17 @@ async def run_main(title, price, sku, identifier, target_id, makeup_url, fragran
             await send_errors_to_telegram(
                 errors_from_run, BOT_TOKEN, TARGET_GROUP_ID, debug_message
             )
+        else:
+            if CHAT_ID and CHAT_ID != "":
+                bot = Bot(token=bot_token)
+                print("SENDING SUCCESS MESSAGE")
+                try:
+                    await bot.send_message(
+                        chat_id=CHAT_ID,
+                        text="✅Успішно опрацьовано"
+                    )
+                except Exception as e:
+                    print("Failed to send message:", e)
 
     finally:
         monitor_task.cancel()
@@ -1869,6 +1882,8 @@ async def process_category(category_id, target_id):
             
 async def trigger_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
+    CHAT_ID = update.effective_chat.id
+    print(f"Chat id:{CHAT_ID}")
 
     text_lower = user_message.lower()
 

@@ -1843,14 +1843,14 @@ async def run_main(title, price, sku, identifier, target_id, makeup_url, fragran
         else:
             if CHAT_ID and CHAT_ID != "":
                 bot = Bot(token=bot_token)
-                    print("SENDING SUCCESS MESSAGE", flush=True)
-                    try:
-                        await bot.send_message(
-                            chat_id=CHAT_ID,
-                            text="✅Успішно опрацьовано"
-                        )
-                    except Exception as e:
-                        print("Failed to send message:", e)
+                print("SENDING SUCCESS MESSAGE", flush=True)
+                try:
+                    await bot.send_message(
+                        chat_id=CHAT_ID,
+                        text="✅Успішно опрацьовано"
+                    )
+                except Exception as e:
+                    print("Failed to send message:", e)
 
     finally:
         monitor_task.cancel()

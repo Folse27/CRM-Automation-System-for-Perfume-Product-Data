@@ -1884,6 +1884,7 @@ async def process_category(category_id, target_id):
             print(f"Error processing material {material.get('id')}: {e}")
             
 async def trigger_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global CHAT_ID
     user_message = update.message.text
     CHAT_ID = update.effective_chat.id
     print(f"Chat id:{CHAT_ID}")

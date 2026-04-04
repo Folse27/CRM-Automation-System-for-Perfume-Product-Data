@@ -799,10 +799,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             del soup
     
             brand = re.sub(r"[''`\u2019\u2018]", "", unicodedata.normalize("NFKD", brand).lower().strip().replace(" ", ""))
-            tokens = re.sub(r"[’'`]", "", model.lower()).split()
-            brand_tokens = set(re.sub(r"[’'`]", "", brand.lower()).split())
-            tokens_with_brand = tokens | brand_tokens
-    
+            tokens = set(re.sub(r"[’'`]", "", model.lower()).split())
     
             for product in products:
                 # 1️⃣ Match brand from data-brand attribute
@@ -823,8 +820,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 text = text.encode("ascii", "ignore").decode()
     
                 product_title = re.sub(r"[’'`]", "", text.lower())
-                print(brand, tokens, tokens_with_brand, product_title, flush=True)
-                if not all(token in product_title for token in tokens) and not all(token in product_title for token in tokens_with_brand):
+                print(brand, tokens, product_title, flush=True)
+                if not all(token in product_title for token in tokens):
                     continue
     
                 # 3️⃣ Extract link

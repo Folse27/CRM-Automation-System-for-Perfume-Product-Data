@@ -904,7 +904,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     continue
     
                 # ❌ Remove decimals
-                if re.match(r'^\d+\.\d+$', token_lower):
+                if re.match(r'^\d+[.,]\d+$', token_lower):
                     i += 1
                     continue
     
@@ -919,7 +919,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     continue
     
                 # ❌ Remove combined unit (100ml)
-                if re.match(r'^\d+(\.\d+)?(ml|g|oz)$', token_lower):
+                if re.match(r'^\d+([.,]\d+)?(ml|g|oz)$', token_lower):
                     i += 1
                     continue
     
@@ -1046,7 +1046,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 return None  # not found
             
             # ---- inside your function ----
-            tokens = set(re.sub(r"[’'`]", "", model.lower()).split())
+            tokens = set(re.sub(r"[^a-z0-9\s]", "", model.lower()).split())
             
             # map Ukrainian input to English concentration
             fragrantica_concentration = map_concentration_to_fragrantica(concentration)
@@ -1292,8 +1292,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         print(f"exact_collection: {exact_collection}")
         print(f"volume: {volume}")
         search_name = ""
+        fragrantica_brand = ""
         if brand and exact_collection:
-            fragrantica_brand = ""
             if brand in FRAGRANTICA_BRANDS:
                 fragrantica_brand = FRAGRANTICA_BRANDS[brand]
             else:
@@ -1331,7 +1331,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
         print(f"FRAGRANTICA{fragrantica_url}", flush=True)
         if search_name and not fragrantica_url:
-            fragrantica_url = await find_fragrantica_url(browser, search_name, brand, exact_collection, product_type)
+            fragrantica_url = await find_fragrantica_url(browser, search_name, fragrantica_brand, exact_collection, product_type)
     
         if fragrantica_url:
             debug_message.append(f"fragrantica url: {fragrantica_url}")

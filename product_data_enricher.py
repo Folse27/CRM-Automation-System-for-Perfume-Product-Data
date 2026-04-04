@@ -800,6 +800,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
             brand = re.sub(r"[''`\u2019\u2018]", "", unicodedata.normalize("NFKD", brand).lower().strip().replace(" ", ""))
             tokens = re.sub(r"[’'`]", "", model.lower()).split()
+            brand_tokens = set(re.sub(r"[’'`]", "", brand.lower()).split())
+            tokens_with_brand = tokens | brand_tokens
     
     
             for product in products:
@@ -821,8 +823,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 text = text.encode("ascii", "ignore").decode()
     
                 product_title = re.sub(r"[’'`]", "", text.lower())
-                print(tokens, product_title, flush=True)
-                if not all(token in product_title for token in tokens):
+                print(brand, tokens, tokens_with_brand, product_title, flush=True)
+                if not all(token in product_title for token in tokens) and not all(token in product_title for token in tokens_with_brand):
                     continue
     
                 # 3️⃣ Extract link
@@ -1074,7 +1076,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     expected_tokens = tokens | extended_tokens
                     print("EXPECTED TOKENS:", expected_tokens, flush=True)  # add this
                     
-                    if hit_tokens == expected_tokens:
+                    if hit_tokens == expected_tokens or hit_tokens == (expected_tokens | set(re.sub(r"[^a-z0-9\s]", "", normalized_brand.lower()).split())):
                         print("MATCHED WITH CONCENTRATION (EXACT)", flush=True)
                         slug = hit.get("slug")
                         website_id = hit.get('id')
@@ -1092,7 +1094,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     print(f"BRAND MISMATCH: expected '{normalized_brand}' got '{hit_brand}'", flush=True)
                     continue
                             
-                if hit_tokens == tokens:
+                if hit_tokens == tokens or hit_tokens == (tokens | set(re.sub(r"[^a-z0-9\s]", "", normalized_brand.lower()).split())):
                     print("MATCHED TOKENS ONLY (EXACT)", flush=True)
                     slug = hit.get("slug")
                     website_id = hit.get('id')

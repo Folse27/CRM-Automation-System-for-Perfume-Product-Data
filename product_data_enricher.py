@@ -1871,13 +1871,13 @@ def delete_material(material_id):
         resp = requests.delete(
             f"{KEEPIN_BASE}/materials/{material_id}",
             headers=keepin_headers(),
-            params={"id": material_id},
+            params={"id": int(material_id)},
             timeout=30,
         )
         resp.raise_for_status()
         print(f"Deleted material {material_id}")
     except requests.RequestException as e:
-        print(f"Error moving material {material_id}:", e)
+        print(f"Error deleting material {material_id}:", e)
 
 
 def update_material(update_data, material_id):
@@ -1892,7 +1892,7 @@ def update_material(update_data, material_id):
         print(f"Updated material {material_id}, new values: {update_data}")
         return resp.json()
     except requests.RequestException as e:
-        print(f"Error updatingmaterial {material_id}:", e)
+        print(f"Error updatin gmaterial {material_id}:", e)
 
 CHAT_ID = ""
 

@@ -754,6 +754,8 @@ async def get_id_and_urls_from_text(text):
 
     return product_match.group(1).strip() if product_match else None, id_match.group(1) if id_match else None, makeup_url.group(1) if makeup_url else None, fragrantica_url.group(1) if fragrantica_url else None, randewoo_url.group(1) if randewoo_url else None
 
+
+
 async def main_func(browser, product, price, sku, identifier, category_id, makeup_url, fragrantica_url, randewoo_url):
     try:
         data = {}
@@ -1822,7 +1824,138 @@ def get_material_by_id(identifier):
         print("Error fetching material:", e)
         return {}  # safe fallback
 
+def find_by_sku(sku):
+    try:
+        resp = requests.get(
+            f"{KEEPIN_BASE}/materials/sku/{sku}",
+            headers=keepin_headers(),
+            params={"material_sku": sku},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        print(resp.json())
+        return resp.json()
+
+    except requests.RequestException as e:
+        print(f"Not found by SKU {sku}:", e)
+        return []
+
+
+def delete_material(material_id):
+    try:
+        resp = requests.delete(
+            f"{KEEPIN_BASE}/materials/{material_id}",
+            headers=keepin_headers(),
+            params={"id": material_id},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        print(f"Deleted material {material_id}")
+    except requests.RequestException as e:
+        print(f"Error moving material {material_id}:", e)
+
+
+def update_material(update_data, material_id):
+    try:
+        resp = requests.patch(
+            f"{KEEPIN_BASE}/materials/{material_id}",
+            headers=keepin_headers(),
+            json=update_data,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        print(f"Updated material {material_id}, new values: {update_data}")
+        return resp.json()
+    except requests.RequestException as e:
+        print(f"Error updatingmaterial {material_id}:", e)
+
 CHAT_ID = ""
+
+async def run_process(mode):
+    await asyncio.to_thread(process, mode)
+
+def process(mode):
+    # Configure mode-specific parameters
+    if mode == "1":
+        CATEGORY_SOURCE = "389934"
+        CATEGORY_HIGHER_PRICE = "366"
+        FINAL_CATEGORY_MAP = {352: 339, 381: 274}
+    elif mode == "2":
+        CATEGORY_SOURCE = "389935"
+        CATEGORY_HIGHER_PRICE = "365"
+        FINAL_CATEGORY_MAP = {339: 352, 274: 381}
+    else:
+        print(f"Unknown mode {mode}")
+        return
+
+    # Fetch materials
+    material_data = get_materials_by_category(CATEGORY_SOURCE)
+    materials_list = material_data.get("items", [])
+
+    for mat in materials_list:
+        sku = mat.get("sku")
+        cost = mat.get("cost")
+        print(cost)
+        if not sku or sku == []:
+            continue
+
+        # Add dash (normalize)
+        search_sku = ""
+        if mode == "1":
+            search_sku = sku.split()[0] + " --"
+        if mode == "2":
+            search_sku = sku.split()[0] + " -"
+
+        if not search_sku:
+            continue
+
+        # Parse price safely
+        try:
+            price = float(str(mat.get("price", "0")).replace(",", "."))
+        except ValueError:
+            print(f"Invalid price for SKU {sku}")
+            continue
+
+        material_id = mat.get("id")
+        original_category = mat.get("category_id")
+
+        match = find_by_sku(search_sku)
+        if not match:
+            continue
+        match_id = match.get("id")
+
+        target_category = match.get("category_id")
+
+        # Only proceed if found in “expected” categories
+        if target_category not in FINAL_CATEGORY_MAP.keys():
+            print(f"SKU {sku} found in category {target_category}, skipping")
+            continue
+
+        try:
+            target_price = float(str(match.get("price", "0")).replace(",", "."))
+        except ValueError:
+            target_price = 0.0
+
+        # -------------------------
+        # DECISION
+        # -------------------------
+        update_data = None
+
+        # Higher price block
+        if price >= target_price:
+            update_data = {"category_id": CATEGORY_HIGHER_PRICE}
+            print(f"price: {price} is >= target_price: {target_price} moving to ПрайсX додано в X")
+        else:
+            # Map to final category
+            final_category = str(FINAL_CATEGORY_MAP.get(target_category))
+            if final_category:
+                update_data = {"category_id": final_category, "sku": sku, "cost": cost}
+                #delete_material(match_id)
+                print(f"price: {price} is < target_price: {target_price} changing values, deleting the duplicate and moving to {final_category}")
+        # Apply update
+        if update_data and material_id:
+            print("Run finished")
+            #keepin_response = update_material(update_data, material_id)
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
     monitor_task = asyncio.create_task(monitor_memory())
@@ -1916,12 +2049,17 @@ async def trigger_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         product, identifier = await get_product_and_id_from_text(user_message)
         print(product, identifier)
         asyncio.create_task(action_manual_name_and_id(product, identifier))
-    elif "id" in text_lower and "makeup url" in text_lower or "fragrantica url" in text_lower or "randewoo url" in text_lower:
+    elif "id" in text_lower and ("makeup url" in text_lower or "fragrantica url" in text_lower or "randewoo url" in text_lower):
         await update.message.reply_text("✅ Сообщение содержит 'id' и 'urls'")
         product, identifier, makeup_url, fragrantica_url, randewoo_url = await get_id_and_urls_from_text(user_message)
         print(product, identifier, makeup_url, fragrantica_url, randewoo_url)
         asyncio.create_task(action_manual_urls(product, identifier, makeup_url, fragrantica_url, randewoo_url))
-
+    elif "Опрацювати Прайс1" in text_lower:
+        await update.message.reply_text("✅ Опрацювання Прайс1 запущена")
+        asyncio.create_task(run_process("1"))
+    elif "Опрацювати Прайс2" in text_lower:
+        await update.message.reply_text("✅ Опрацювання Прайс2 запущена")
+        asyncio.create_task(run_process("2"))
 async def action_standart(category):
     try:
         if category == "1":

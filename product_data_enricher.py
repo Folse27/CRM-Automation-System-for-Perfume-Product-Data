@@ -1871,8 +1871,7 @@ def delete_material(material_id):
         resp = requests.delete(
             f"{KEEPIN_BASE}/materials/{material_id}",
             headers=keepin_headers(),
-            params={"id": int(material_id)},
-            timeout=30,
+            timeout=120,
         )
         resp.raise_for_status()
         print(f"Deleted material {material_id}")

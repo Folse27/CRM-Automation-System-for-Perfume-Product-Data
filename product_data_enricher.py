@@ -1876,6 +1876,9 @@ async def run_process(mode):
 
 def process(mode):
     # Configure mode-specific parameters
+    CATEGORY_SOURCE = ""
+    CATEGORY_HIGHER_PRICE = ""
+    FINAL_CATEGORY_MAP = {}
     if mode == "1":
         CATEGORY_SOURCE = "389934"
         CATEGORY_HIGHER_PRICE = "366"
@@ -1885,11 +1888,11 @@ def process(mode):
         CATEGORY_HIGHER_PRICE = "365"
         FINAL_CATEGORY_MAP = {339: 352, 274: 381}
     else:
-        print(f"Unknown mode {mode}")
+        print(f"Unknown mode {mode}", flush=True)
         return
 
     # Fetch materials
-    material_data = get_materials_by_category(CATEGORY_SOURCE)
+    material_data = get_materials(CATEGORY_SOURCE)
     materials_list = material_data.get("items", [])
 
     for mat in materials_list:

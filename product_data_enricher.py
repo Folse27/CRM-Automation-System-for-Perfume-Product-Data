@@ -1949,6 +1949,11 @@ def process(mode):
 
         match = find_by_sku(search_sku)
         if not match:
+            if mode == "1":
+                update_data = {"category_id": 294}
+                print("moving to 294, because no match", flush=True)
+                print("Run finished", flush=True)
+                keepin_response = update_material(update_data, material_id)
             continue
         match_id = match.get("id")
 
@@ -1979,7 +1984,7 @@ def process(mode):
         update_data = None
 
         # Higher price block
-        if price >= target_price or persistent and not (mode == "1" and not persistent_in_target):
+        if price >= target_price or (mode == "1" and not persistent) and not (mode == "1" and not persistent_in_target):
             update_data = {"category_id": CATEGORY_HIGHER_PRICE}
             print(f"price: {price} is >= target_price: {target_price} moving to ПрайсX додано в X", flush=True)
         elif price < target_price or (mode == "1" and not persistent_in_target):

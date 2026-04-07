@@ -1797,18 +1797,43 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         print("Run finished", flush=True)
 
 def get_materials(category_id):
+    all_items = []
+    page = 1
+
     try:
-        resp = requests.get(
-            f"{KEEPIN_BASE}/materials",
-            headers=keepin_headers(),
-            params={"q[category_id_eq]": category_id},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        return resp.json()
+        while True:
+            resp = requests.get(
+                f"{KEEPIN_BASE}/materials",
+                headers=keepin_headers(),
+                params={
+                    "q[category_id_eq]": category_id,
+                    "page": page
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            # collect items
+            items = data.get("items", [])
+            all_items.extend(items)
+
+            # pagination info
+            pagination = data.get("pagination", {})
+            total_pages = pagination.get("total_pages", 1)
+            print(total_pages, flush=True)
+
+            # stop condition
+            if page >= total_pages:
+                break
+
+            page += 1
+
+        return {"items": all_items}
+
     except requests.RequestException as e:
         print("Error fetching materials:", e)
-        return {"items": []}  # safe fallback
+        return {"items": []}
 
 def get_material_by_id(identifier):
     try:
@@ -1936,8 +1961,11 @@ def process(mode):
         # Only proceed if found in “expected” categories
         if target_category not in FINAL_CATEGORY_MAP.keys():
             print(f"SKU {sku} found in category {target_category}, skipping", flush=True)
-            #if mode == "1" and not persistent:
-                #update_data = {"category_id": }
+            if mode == "1" and not persistent:
+                update_data = {"category_id": 294}
+                print("Proccess mode 1, not available and not in the correct categories, moving to 294", flush=True)
+                print("Run finished", flush=True)
+                keepin_response = update_material(update_data, material_id)
             continue
 
         try:

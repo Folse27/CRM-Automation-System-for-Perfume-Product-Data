@@ -1895,7 +1895,7 @@ def process(mode):
     for mat in materials_list:
         sku = mat.get("sku")
         cost = mat.get("cost")
-        print(cost)
+        print(cost, flush=True)
         if not sku or sku == []:
             continue
 
@@ -1913,7 +1913,7 @@ def process(mode):
         try:
             price = float(str(mat.get("price", "0")).replace(",", "."))
         except ValueError:
-            print(f"Invalid price for SKU {sku}")
+            print(f"Invalid price for SKU {sku}", flush=True)
             continue
 
         material_id = mat.get("id")
@@ -1928,7 +1928,7 @@ def process(mode):
 
         # Only proceed if found in “expected” categories
         if target_category not in FINAL_CATEGORY_MAP.keys():
-            print(f"SKU {sku} found in category {target_category}, skipping")
+            print(f"SKU {sku} found in category {target_category}, skipping", flush=True)
             continue
 
         try:
@@ -1944,17 +1944,17 @@ def process(mode):
         # Higher price block
         if price >= target_price:
             update_data = {"category_id": CATEGORY_HIGHER_PRICE}
-            print(f"price: {price} is >= target_price: {target_price} moving to ПрайсX додано в X")
+            print(f"price: {price} is >= target_price: {target_price} moving to ПрайсX додано в X", flush=True)
         else:
             # Map to final category
             final_category = str(FINAL_CATEGORY_MAP.get(target_category))
             if final_category:
                 update_data = {"category_id": final_category, "sku": sku, "cost": cost}
                 #delete_material(match_id)
-                print(f"price: {price} is < target_price: {target_price} changing values, deleting the duplicate and moving to {final_category}")
+                print(f"price: {price} is < target_price: {target_price} changing values, deleting the duplicate and moving to {final_category}", flush=True)
         # Apply update
         if update_data and material_id:
-            print("Run finished")
+            print("Run finished", flush=True)
             #keepin_response = update_material(update_data, material_id)
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
@@ -2054,11 +2054,11 @@ async def trigger_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
         product, identifier, makeup_url, fragrantica_url, randewoo_url = await get_id_and_urls_from_text(user_message)
         print(product, identifier, makeup_url, fragrantica_url, randewoo_url)
         asyncio.create_task(action_manual_urls(product, identifier, makeup_url, fragrantica_url, randewoo_url))
-    elif "Опрацювати Прайс1" in text_lower:
-        await update.message.reply_text("✅ Опрацювання Прайс1 запущена")
+    elif "опрацювати прайс1" in text_lower:
+        await update.message.reply_text("✅ Опрацювання Прайс1 запущено")
         asyncio.create_task(run_process("1"))
-    elif "Опрацювати Прайс2" in text_lower:
-        await update.message.reply_text("✅ Опрацювання Прайс2 запущена")
+    elif "опрацювати прайс2" in text_lower:
+        await update.message.reply_text("✅ Опрацювання Прайс2 запущено")
         asyncio.create_task(run_process("2"))
 async def action_standart(category):
     try:

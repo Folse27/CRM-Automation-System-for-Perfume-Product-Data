@@ -1928,10 +1928,16 @@ def process(mode):
         match_id = match.get("id")
 
         target_category = match.get("category_id")
+        persistent = mat.get('stock_rests', {}).get('16571', {}).get('available', 0) > 0
+        persistent_in_target = match.get('stock_rests', {}).get('16571', {}).get('available', 0) > 0
+        print(f"persistent: {persistent}", flush=True)
+        print(f"persistent_in_target: {persistent_in_target}", flush=True)
 
         # Only proceed if found in “expected” categories
         if target_category not in FINAL_CATEGORY_MAP.keys():
             print(f"SKU {sku} found in category {target_category}, skipping", flush=True)
+            #if mode == "1" and not persistent:
+                #update_data = {"category_id": }
             continue
 
         try:
@@ -1945,10 +1951,10 @@ def process(mode):
         update_data = None
 
         # Higher price block
-        if price >= target_price:
+        if price >= target_price or persistent and not (mode == "1" and not persistent_in_target):
             update_data = {"category_id": CATEGORY_HIGHER_PRICE}
             print(f"price: {price} is >= target_price: {target_price} moving to ПрайсX додано в X", flush=True)
-        else:
+        elif price < target_price or (mode == "1" and not persistent_in_target):
             # Map to final category
             final_category = str(FINAL_CATEGORY_MAP.get(target_category))
             if final_category:

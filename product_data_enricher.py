@@ -1953,12 +1953,12 @@ def process(mode):
             final_category = str(FINAL_CATEGORY_MAP.get(target_category))
             if final_category:
                 update_data = {"category_id": final_category, "sku": sku, "cost": cost}
-                #delete_material(match_id)
+                delete_material(match_id)
                 print(f"price: {price} is < target_price: {target_price} changing values, deleting the duplicate and moving to {final_category}", flush=True)
         # Apply update
         if update_data and material_id:
             print("Run finished", flush=True)
-            #keepin_response = update_material(update_data, material_id)
+            keepin_response = update_material(update_data, material_id)
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
     monitor_task = asyncio.create_task(monitor_memory())

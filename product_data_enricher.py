@@ -1962,10 +1962,12 @@ def process(mode):
         match_id = match.get("id")
 
         target_category = match.get("category_id")
-        persistent = mat.get('stock_rests', {}).get('16571', {}).get('available', 0) > 0
-        persistent_in_target = match.get('stock_rests', {}).get('16571', {}).get('available', 0) > 0
-        print(f"persistent: {persistent}", flush=True)
-        print(f"persistent_in_target: {persistent_in_target}", flush=True)
+        persistent_value = mat.get('stock_rests', {}).get('16571', {}).get('available', 0)
+        persistent = persistent_value > 0
+        persistent_in_target_value = match.get('stock_rests', {}).get('16571', {}).get('available', 0)
+        persistent_in_target = persistent_in_target_value > 0
+        print(f"persistent: {persistent}, {persistent_value}", flush=True)
+        print(f"persistent_in_target: {persistent_in_target}, {persistent_in_target_value}", flush=True)
 
         # Only proceed if found in “expected” categories
         if target_category not in FINAL_CATEGORY_MAP.keys():
@@ -1986,22 +1988,25 @@ def process(mode):
         # DECISION
         # -------------------------
         update_data = None
+        final_id = ""
 
         # Higher price block
         if price >= target_price or (mode == "1" and not persistent) and not (mode == "1" and not persistent_in_target):
             update_data = {"category_id": CATEGORY_HIGHER_PRICE}
+            final_id = material_id
             print(f"price: {price} is >= target_price: {target_price} moving to ПрайсX додано в X", flush=True)
         elif price < target_price or (mode == "1" and not persistent_in_target):
             # Map to final category
             final_category = str(FINAL_CATEGORY_MAP.get(target_category))
             if final_category:
+                final_id = match_id
                 update_data = {"category_id": final_category, "sku": sku, "cost": cost}
-                delete_material(match_id)
+                delete_material(material_id)
                 print(f"price: {price} is < target_price: {target_price} changing values, deleting the duplicate and moving to {final_category}", flush=True)
         # Apply update
-        if update_data and material_id:
+        if update_data and final_id:
             print("Run finished", flush=True)
-            keepin_response = update_material(update_data, material_id)
+            keepin_response = update_material(update_data, final_id)
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
     monitor_task = asyncio.create_task(monitor_memory())

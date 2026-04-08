@@ -1877,7 +1877,7 @@ def delete_material(material_id):
         print(f"Deleted material {material_id}")
     except requests.RequestException as e:
         print(f"Error deleting material {material_id}:", e)
-         if e.response is not None:
+         if e.response:
             print("Status:", e.response.status_code)
             print("Body:", e.response.text)
         else:

@@ -1904,23 +1904,24 @@ async def run_process(mode):
     await asyncio.to_thread(process, mode)
 
 def process(mode):
-    # Configure mode-specific parameters
     CATEGORY_SOURCE = ""
     CATEGORY_HIGHER_PRICE = ""
+    NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY = ""
     FINAL_CATEGORY_MAP = {}
     if mode == "1":
         CATEGORY_SOURCE = "389934"
         CATEGORY_HIGHER_PRICE = "366"
+        NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY = "294"
         FINAL_CATEGORY_MAP = {352: 339, 381: 274}
     elif mode == "2":
         CATEGORY_SOURCE = "389935"
         CATEGORY_HIGHER_PRICE = "365"
+        NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY = "383"
         FINAL_CATEGORY_MAP = {339: 352, 274: 381}
     else:
         print(f"Unknown mode {mode}", flush=True)
         return
 
-    # Fetch materials
     material_data = get_materials(CATEGORY_SOURCE)
     materials_list = material_data.get("items", [])
 
@@ -1928,10 +1929,9 @@ def process(mode):
         sku = mat.get("sku")
         cost = mat.get("cost")
         print(cost, flush=True)
-        if not sku or sku == []:
+        if not sku:
             continue
 
-        # Add dash (normalize)
         search_sku = ""
         if mode == "1":
             search_sku = sku.split()[0] + " --"
@@ -1941,69 +1941,68 @@ def process(mode):
         if not search_sku:
             continue
 
-        # Parse price safely
+        material_id = mat.get("id")
+        print(f"material_id: {material_id}", flush=True)
+        original_category = mat.get("category_id")
+
+        match = find_by_sku(search_sku)
+        
+        persistent_value = mat.get('stock_rests', {}).get('16571', {}).get('available', 0)
+        persistent = persistent_value > 0
+        print(f"persistent: {persistent}, {persistent_value}", flush=True)
+        
+        if not match:
+            if not persistent:
+                update_data = {"category_id": NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY}
+                print(f"moving to {NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY}, because no match and not persistent", flush=True)
+                print("Run finished", flush=True)
+                keepin_response = update_material(update_data, material_id)
+            continue
+
+        target_category = match.get("category_id")
+
+        if target_category not in FINAL_CATEGORY_MAP.keys():
+            print(f"SKU {sku} found in category {target_category}, skipping", flush=True)
+            if not persistent:
+                update_data = {"category_id": NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY}
+                print(f"moving to {NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY}, because not in the right category and not persistent", flush=True)
+                print("Run finished", flush=True)
+                keepin_response = update_material(update_data, material_id)
+            continue
+            
+        match_id = match.get("id")
+        
+        persistent_in_target_value = match.get('stock_rests', {}).get('16571', {}).get('available', 0)
+        persistent_in_target = persistent_in_target_value > 0
+        print(f"persistent_in_target: {persistent_in_target}, {persistent_in_target_value}", flush=True)
+        
         try:
             price = float(str(mat.get("price", "0")).replace(",", "."))
         except ValueError:
             print(f"Invalid price for SKU {sku}", flush=True)
-            continue
-
-        material_id = mat.get("id")
-        original_category = mat.get("category_id")
-
-        match = find_by_sku(search_sku)
-        if not match:
-            if mode == "1":
-                update_data = {"category_id": 294}
-                print("moving to 294, because no match", flush=True)
-                print("Run finished", flush=True)
-                keepin_response = update_material(update_data, material_id)
-            continue
-        match_id = match.get("id")
-
-        target_category = match.get("category_id")
-        persistent_value = mat.get('stock_rests', {}).get('16571', {}).get('available', 0)
-        persistent = persistent_value > 0
-        persistent_in_target_value = match.get('stock_rests', {}).get('16571', {}).get('available', 0)
-        persistent_in_target = persistent_in_target_value > 0
-        print(f"persistent: {persistent}, {persistent_value}", flush=True)
-        print(f"persistent_in_target: {persistent_in_target}, {persistent_in_target_value}", flush=True)
-
-        # Only proceed if found in “expected” categories
-        if target_category not in FINAL_CATEGORY_MAP.keys():
-            print(f"SKU {sku} found in category {target_category}, skipping", flush=True)
-            if mode == "1" and not persistent:
-                update_data = {"category_id": 294}
-                print("Proccess mode 1, not available and not in the correct categories, moving to 294", flush=True)
-                print("Run finished", flush=True)
-                keepin_response = update_material(update_data, material_id)
-            continue
+            continue  
 
         try:
             target_price = float(str(match.get("price", "0")).replace(",", "."))
         except ValueError:
             target_price = 0.0
 
-        # -------------------------
-        # DECISION
-        # -------------------------
         update_data = None
         final_id = ""
 
-        # Higher price block
-        if price >= target_price or (mode == "1" and not persistent) and not (mode == "1" and not persistent_in_target):
+        if persistent_in_target and price >= target_price:
             update_data = {"category_id": CATEGORY_HIGHER_PRICE}
             final_id = material_id
             print(f"price: {price} is >= target_price: {target_price} moving to ПрайсX додано в X", flush=True)
-        elif price < target_price or (mode == "1" and not persistent_in_target):
-            # Map to final category
+            
+        elif not persistent_in_target or price < target_price:
             final_category = str(FINAL_CATEGORY_MAP.get(target_category))
             if final_category:
                 final_id = match_id
                 update_data = {"category_id": final_category, "sku": sku, "cost": cost}
                 delete_material(material_id)
                 print(f"price: {price} is < target_price: {target_price} changing values, deleting the duplicate and moving to {final_category}", flush=True)
-        # Apply update
+                
         if update_data and final_id:
             print("Run finished", flush=True)
             keepin_response = update_material(update_data, final_id)

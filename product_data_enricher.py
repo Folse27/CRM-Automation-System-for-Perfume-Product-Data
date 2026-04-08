@@ -2001,7 +2001,7 @@ def process(mode):
             if final_category:
                 final_id = match_id
                 stock_rests = match.get("stock_rests", {})
-                stock_rests.setdefault("16571", {})["available"] = 10
+                stock_rests.setdefault("16571", {})["available"] = 10.0
                 update_data = {"category_id": final_category, "sku": sku, "cost": cost, "stock_rests": stock_rests}
                 delete_material(material_id)
                 print(f"price: {price} is < target_price: {target_price} changing values, deleting the duplicate and moving to {final_category}", flush=True)

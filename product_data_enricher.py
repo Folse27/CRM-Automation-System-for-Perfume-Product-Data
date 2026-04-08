@@ -615,6 +615,20 @@ UKR_TO_RU = {
     "для жінок": "для женщин",
     "унісекс": "унисекс",
 }
+
+#CATEGORY_NAMES = {
+    #"366": "Прайс1 додано в 2",
+    #"365": "Прайс2 додано в 1",
+    #"339": "Прайс 1 ОПУБЛІКОВАНО Розетка",
+    #"352": "Прайс 2 Опубліковано Розетка",
+    #"274": "Прайс 1 ОПУБЛІКОВАНО Розетка+Пром",
+    #"381": "Прайс 2 Опубліковано Розетка + Пром",
+    #"294": "Прайс 1 Не додані (немає)",
+    #"383": "Прайс 2 не додані (немає)",
+    #"254": "Прайс1",
+    #"255": "Прайс2",
+#}
+
 LIMIT = 400 * 1024 * 1024  # 400 MB
 
 process = psutil.Process(os.getpid())
@@ -1908,6 +1922,7 @@ def process(mode):
     CATEGORY_HIGHER_PRICE = ""
     NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY = ""
     FINAL_CATEGORY_MAP = {}
+    #used_skus_log = []
     if mode == "1":
         CATEGORY_SOURCE = "389934"
         CATEGORY_HIGHER_PRICE = "366"
@@ -1994,6 +2009,12 @@ def process(mode):
         if not persistent or (persistent_in_target and price >= target_price):
             update_data = {"category_id": CATEGORY_HIGHER_PRICE}
             final_id = material_id
+            
+            #from_cat = CATEGORY_NAMES.get(str(original_category), str(original_category))
+            #to_cat = CATEGORY_NAMES.get(str(CATEGORY_HIGHER_PRICE), CATEGORY_HIGHER_PRICE)
+
+            #used_skus_log.append(f"{sku} | {from_cat} → {to_cat}")
+            
             print(f"price: {price} is >= target_price: {target_price} moving to ПрайсX додано в X", flush=True)
             
         elif not persistent_in_target or price < target_price:
@@ -2009,6 +2030,12 @@ def process(mode):
                         "office_id": int(office_id),
                         "available": 10.0 if office_id == "16571" else data.get("available", 0)
                     })
+
+                #from_cat = CATEGORY_NAMES.get(str(original_category), str(original_category))
+                #to_cat = CATEGORY_NAMES.get(final_category, final_category)
+        
+                #used_skus_log.append(f"{search_sku} | {from_cat} → {to_cat}")
+
                     
                 update_data = {"category_id": final_category, "sku": sku, "cost": cost, "stock_rests_attributes": stock_rests_attributes}
                 delete_material(material_id)

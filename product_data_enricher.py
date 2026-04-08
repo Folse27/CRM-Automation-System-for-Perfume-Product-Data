@@ -1991,7 +1991,7 @@ def process(mode):
         update_data = None
         final_id = ""
 
-        if persistent_in_target and price >= target_price:
+        if not persistent or (persistent_in_target and price >= target_price):
             update_data = {"category_id": CATEGORY_HIGHER_PRICE}
             final_id = material_id
             print(f"price: {price} is >= target_price: {target_price} moving to ПрайсX додано в X", flush=True)

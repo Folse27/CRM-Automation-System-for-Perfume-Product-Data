@@ -1971,6 +1971,7 @@ def process(mode):
             continue
             
         match_id = match.get("id")
+        print(f"match_id: {match_id}", flush=True)
         
         persistent_in_target_value = match.get('stock_rests', {}).get('16571', {}).get('available', 0)
         persistent_in_target = persistent_in_target_value > 0
@@ -1999,7 +2000,9 @@ def process(mode):
             final_category = str(FINAL_CATEGORY_MAP.get(target_category))
             if final_category:
                 final_id = match_id
-                update_data = {"category_id": final_category, "sku": sku, "cost": cost}
+                stock_rests = match.get("stock_rests", {})
+                stock_rests.setdefault("16571", {})["available"] = 10
+                update_data = {"category_id": final_category, "sku": sku, "cost": cost, "stock_rests": stock_rests}
                 delete_material(material_id)
                 print(f"price: {price} is < target_price: {target_price} changing values, deleting the duplicate and moving to {final_category}", flush=True)
                 

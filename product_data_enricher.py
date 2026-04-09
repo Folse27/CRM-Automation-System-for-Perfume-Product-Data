@@ -1810,38 +1810,36 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     finally:
         print("Run finished", flush=True)
 
-def get_materials(category_id):
+def get_materials(category_ids):
     all_items = []
-    page = 1
 
     try:
-        while True:
-            resp = requests.get(
-                f"{KEEPIN_BASE}/materials",
-                headers=keepin_headers(),
-                params={
-                    "q[category_id_eq]": category_id,
-                    "page": page
-                },
-                timeout=30,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        for category_id in category_ids:
+            page = 1
 
-            # collect items
-            items = data.get("items", [])
-            all_items.extend(items)
+            while True:
+                resp = requests.get(
+                    f"{KEEPIN_BASE}/materials",
+                    headers=keepin_headers(),
+                    params={
+                        "q[category_id_eq]": category_id,
+                        "page": page
+                    },
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                data = resp.json()
 
-            # pagination info
-            pagination = data.get("pagination", {})
-            total_pages = pagination.get("total_pages", 1)
-            print(total_pages, flush=True)
+                items = data.get("items", [])
+                all_items.extend(items)
 
-            # stop condition
-            if page >= total_pages:
-                break
+                pagination = data.get("pagination", {})
+                total_pages = pagination.get("total_pages", 1)
 
-            page += 1
+                if page >= total_pages:
+                    break
+
+                page += 1
 
         return {"items": all_items}
 
@@ -2044,6 +2042,17 @@ def process(mode):
         if update_data and final_id:
             print("Run finished", flush=True)
             keepin_response = update_material(update_data, final_id)
+            
+    if CHAT_ID and CHAT_ID != "":
+                bot = Bot(token=MANAGER_BOT_TOKEN)
+                print("SENDING SUCCESS MESSAGE (PROCESSED FOLDERS)", flush=True)
+                try:
+                    await bot.send_message(
+                        chat_id=CHAT_ID,
+                        text="✅Успішно опрацьовано папки"
+                    )
+                except Exception as e:
+                    print("Failed to send message (PROCESSED FOLDERS):", e)
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
     monitor_task = asyncio.create_task(monitor_memory())
@@ -2082,7 +2091,7 @@ async def run_main(title, price, sku, identifier, target_id, makeup_url, fragran
             pass
 
 async def process_category(category_id, target_id):
-    material_data = get_materials(category_id)
+    material_data = get_materials([category_id])
     materials_list = material_data.get("items", [])
 
     for material in materials_list:

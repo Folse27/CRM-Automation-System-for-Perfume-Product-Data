@@ -2104,7 +2104,7 @@ async def process_category(category_id, target_id):
             print(f"Error processing material {material.get('id')}: {e}")
 
 async def run_and_notify(mode):
-    await asyncio.to_thread(run_process, mode)  # runs sync function in thread
+    await run_process(mode)  # runs sync function in thread
 
     if CHAT_ID:
         bot = Bot(token=MANAGER_BOT_TOKEN)

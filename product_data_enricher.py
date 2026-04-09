@@ -1922,12 +1922,12 @@ def process(mode):
     FINAL_CATEGORY_MAP = {}
     #used_skus_log = []
     if mode == "1":
-        CATEGORY_SOURCE = ["389934", "1496143", "1496142", "683545", "559882"]
+        CATEGORY_SOURCE = ["389934", "1496143", "1496142", "683545"]
         CATEGORY_HIGHER_PRICE = "366"
         NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY = "294"
         FINAL_CATEGORY_MAP = {352: 339, 381: 274}
     elif mode == "2":
-        CATEGORY_SOURCE = ["389935", "1338735", "1338734", "683544", "742392"]
+        CATEGORY_SOURCE = ["389935", "1338735", "1338734", "683544"]
         CATEGORY_HIGHER_PRICE = "365"
         NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY = "383"
         FINAL_CATEGORY_MAP = {339: 352, 274: 381}
@@ -1965,7 +1965,7 @@ def process(mode):
         print(f"persistent: {persistent}, {persistent_value}", flush=True)
         
         if not match:
-            if not persistent and original_category != NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY:
+            if not persistent:
                 update_data = {"category_id": NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY}
                 print(f"moving to {NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY}, because no match and not persistent", flush=True)
                 print("Run finished", flush=True)
@@ -1976,7 +1976,7 @@ def process(mode):
 
         if target_category not in FINAL_CATEGORY_MAP.keys():
             print(f"SKU {sku} found in category {target_category}, skipping", flush=True)
-            if not persistent and original_category != NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY:
+            if not persistent:
                 update_data = {"category_id": NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY}
                 print(f"moving to {NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY}, because not in the right category and not persistent", flush=True)
                 print("Run finished", flush=True)

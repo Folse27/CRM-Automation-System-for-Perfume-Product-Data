@@ -2042,17 +2042,6 @@ def process(mode):
         if update_data and final_id and update_data != "":
             print("Run finished", flush=True)
             keepin_response = update_material(update_data, final_id)
-            
-    if CHAT_ID and CHAT_ID != "":
-                bot = Bot(token=MANAGER_BOT_TOKEN)
-                print("SENDING SUCCESS MESSAGE (PROCESSED FOLDERS)", flush=True)
-                try:
-                    await bot.send_message(
-                        chat_id=CHAT_ID,
-                        text="✅Успішно опрацьовано папки"
-                    )
-                except Exception as e:
-                    print("Failed to send message (PROCESSED FOLDERS):", e)
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
     monitor_task = asyncio.create_task(monitor_memory())
@@ -2154,9 +2143,31 @@ async def trigger_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif "опрацювати прайс1" in text_lower:
         await update.message.reply_text("✅ Опрацювання Прайс1 запущено")
         asyncio.create_task(run_process("1"))
+        if CHAT_ID and CHAT_ID != "":
+            bot = Bot(token=MANAGER_BOT_TOKEN)
+            print("SENDING SUCCESS MESSAGE (PROCESSED FOLDERS)", flush=True)
+            try:
+                await bot.send_message(
+                    chat_id=CHAT_ID,
+                    text="✅Успішно опрацьовано папки Прайс1"
+                )
+            except Exception as e:
+                print("Failed to send message (PROCESSED FOLDERS):", e)
+                
     elif "опрацювати прайс2" in text_lower:
         await update.message.reply_text("✅ Опрацювання Прайс2 запущено")
         asyncio.create_task(run_process("2"))
+        if CHAT_ID and CHAT_ID != "":
+            bot = Bot(token=MANAGER_BOT_TOKEN)
+            print("SENDING SUCCESS MESSAGE (PROCESSED FOLDERS)", flush=True)
+            try:
+                await bot.send_message(
+                    chat_id=CHAT_ID,
+                    text="✅Успішно опрацьовано папки Прайс2"
+                )
+            except Exception as e:
+                print("Failed to send message (PROCESSED FOLDERS):", e)
+                    
 async def action_standart(category):
     try:
         if category == "1":

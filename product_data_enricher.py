@@ -1389,6 +1389,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         if soup:
             print("soup exists", flush=True)
             container = soup.select_one(".tabs-content")
+            print(f"Container: {container}", flush=True)
             del soup
     
         if RU_url:
@@ -1714,7 +1715,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 data["opisaniie_ru_1469371"] = description_html_ru
             else:
                 errors.append("Не вдалося знайти опис на рандеву!")
-                    
+                
+        print(f"Container: {container}", flush=True)   
         if container:  
             print("container exists", flush=True)
             # Second <li> = опис

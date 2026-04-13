@@ -1387,7 +1387,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 await context.close()
     
         if soup:
-            print("soup exists", flush=True))
+            print("soup exists", flush=True)
             container = soup.select_one(".tabs-content")
             del soup
     

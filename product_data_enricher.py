@@ -1388,8 +1388,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
         if soup:
             print("soup exists", flush=True)
-            container = soup.select_one('[class*="ProductCharacteristics__content"]')
-            # print(f"Container: {container}", flush=True)
+            container = soup.select_one(".ProductCharacteristics__content")
+            print(f"Container: {container}", flush=True)
             del soup
     
         if RU_url:
@@ -1717,6 +1717,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             else:
                 errors.append("Не вдалося знайти опис на рандеву!")
 
+        print(f"Container: {container}", flush=True)
         if container:
             print("container exists", flush=True)
             html_block = container.select_one('[class*="Html__html"]')

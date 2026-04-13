@@ -631,12 +631,12 @@ UKR_TO_RU = {
 
 LIMIT = 400 * 1024 * 1024  # 400 MB
 
-process = psutil.Process(os.getpid())
+_self_process = psutil.Process(os.getpid())
 
 async def monitor_memory():
     try:
         while True:
-            mem = process.memory_info().rss
+            mem = _self_process.memory_info().rss
 
             if mem > LIMIT:
                 print("WARNING: nearing memory limit", flush=True)
@@ -1382,11 +1382,12 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 html_content = await page.content()
                 soup = BeautifulSoup(html_content, "html.parser")
             except Exception as e:
-                print(f"[ERROR] Failed to fetch makeup UA url: {e}")
+                print(f"[ERROR] Failed to fetch makeup UA url: {e}", flush=True))
             finally:
                 await context.close()
     
-        if soup:      
+        if soup:
+            print("soup exists", flush=True))
             container = soup.select_one(".tabs-content")
             del soup
     
@@ -1403,11 +1404,12 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 html_content = await page.content()
                 RU_soup = BeautifulSoup(html_content, "html.parser")
             except Exception as e:
-                print(f"[ERROR] Failed to fetch makeup RU url: {e}")
+                print(f"[ERROR] Failed to fetch makeup RU url: {e}", flush=True))
             finally:
                 await context.close()
     
         if RU_soup:
+            print("ru soup exists", flush=True)
             RU_container = RU_soup.select_one(".tabs-content")
             del RU_soup
     
@@ -1713,7 +1715,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             else:
                 errors.append("Не вдалося знайти опис на рандеву!")
                     
-        if container:        
+        if container:  
+            print("container exists", flush=True)
             # Second <li> = опис
             all_li = container.find_all("li")
             if all_li and ((not data.get("klassifikatsiia_272") or data.get("klassifikatsiia_272") == "") or (not data.get("sieriia_491") or data.get("sieriia_491") == "")):
@@ -1739,15 +1742,19 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     errors.append("Не вдалося знайти колекції на fragrantica.ua та makeup.ua")  
                                     
             if randewoo_url is None or randewoo_url == "":
+                print("finding description ua", flush=True)
                 description_li = container.select_one("li.product-info__description.product-description-content")
                 if description_li and description_li.decode_contents():
+                    print("found description ua", flush=True)
                     data["opisaniie_ua_1469370"] = description_li.decode_contents()
                 
         if RU_container and randewoo_url is None or randewoo_url == "":
+            print("finding description ru", flush=True)
             ru_description_li = RU_container.select_one("li.product-info__description.product-description-content")
             # Case 1: RU description exists
             FOUND_RU_DESC = False
             if ru_description_li and ru_description_li.decode_contents().strip():
+                print("found description ru", flush=True)
                 data["opisaniie_ru_1469371"] = ru_description_li.decode_contents().strip()
                 FOUND_RU_DESC = True
                 if not data.get("opisaniie_ua_1469370") or not data["opisaniie_ua_1469370"]:
@@ -1764,7 +1771,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                             if p.strip()
                             )
                     except Exception:
-                        errors.append("Не вдалося визначити ua опис з makeup.ua та не вдалося перекласти опис з ru на ua")
+                        errors.append("Не вдалося визначити ua опис з makeup.ua та не вдалося перекласти опис з ru на ua", flush=True)
     
             if data.get("opisaniie_ua_1469370") and data["opisaniie_ua_1469370"] and not FOUND_RU_DESC:
                 try:
@@ -1781,7 +1788,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                         )
     
                 except Exception:
-                    errors.append("Не вдалося перекласти опис з ua на ru")
+                    errors.append("Не вдалося перекласти опис з ua на ru", flush=True)
     
         custom_fields_array = [{"name": k, "value": str(v)} for k, v in data.items() if v is not None]
         print(custom_fields_array)

@@ -1388,8 +1388,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
         if soup:
             print("soup exists", flush=True)
-            container = soup.select_one(".tabs-content")
-            print(f"Container: {container}", flush=True)
+            container = soup.select_one('[class*="ProductCharacteristics__content"]')
+            # print(f"Container: {container}", flush=True)
             del soup
     
         if RU_url:
@@ -1411,7 +1411,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
         if RU_soup:
             print("ru soup exists", flush=True)
-            RU_container = RU_soup.select_one(".tabs-content")
+            RU_container = RU_soup.select_one('[class*="ProductCharacteristics__content"]')
             del RU_soup
     
         async def get_fragrantica_page(browser, url: str) -> BeautifulSoup | None:
@@ -1663,6 +1663,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                                 errors.append("Не вдалося визначити аккорди на fragrantica.ua")
             except Exception as e:
                 print(f"[ERROR] fragrantica_scrape failed: {e}")
+                
         if fragrantica_url:
             await fragrantica_scrape(fragrantica_url)
     
@@ -1715,44 +1716,42 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 data["opisaniie_ru_1469371"] = description_html_ru
             else:
                 errors.append("Не вдалося знайти опис на рандеву!")
-                
-        print(f"Container: {container}", flush=True)   
-        if container:  
+
+        if container:
             print("container exists", flush=True)
-            # Second <li> = опис
-            all_li = container.find_all("li")
-            if all_li and ((not data.get("klassifikatsiia_272") or data.get("klassifikatsiia_272") == "") or (not data.get("sieriia_491") or data.get("sieriia_491") == "")):
-                characteristics_li = all_li[0]
-                for tag in characteristics_li.find_all("strong"):
-                    old_label = tag.get_text(strip=True).replace(":", "")
-                    next_sib = tag.next_sibling
-                    if next_sib is None:
-                        value = ""
-                    elif isinstance(next_sib, str):
-                        value = next_sib.strip()
-                    else:
-                        value = next_sib.get_text(strip=True)
-                    if old_label == "Класифікація" and (not data.get("klassifikatsiia_272") or data.get("klassifikatsiia_272") == ""):
-                        print(old_label)
-                        data["klassifikatsiia_272"] = value
-                    if old_label == "Серія" and (not data.get("sieriia_491") or data.get("sieriia_491") == ""):
-                        print(old_label)
-                        data["sieriia_491"] = value
-                if not data.get("klassifikatsiia_272") or data.get("klassifikatsiia_272") == "":
-                    errors.append(f"Не вдалося визначити Класифікацію")
-                if not data.get("sieriia_491") or data.get("sieriia_491") == "":
-                    errors.append("Не вдалося знайти колекції на fragrantica.ua та makeup.ua")  
+            html_block = container.select_one('[class*="Html__html"]')
+        
+            if html_block:
+                for p in html_block.find_all("p"):
+                    strong = p.find("strong")
+                    if not strong:
+                        continue
+        
+                    label = strong.get_text(strip=True).replace("—", "").replace(":", "")
+                    text = p.get_text(strip=True).replace(strong.get_text(strip=True), "").strip(" —")
+        
+                    print(label, text)
+        
+                    if label == "Класифікація" and not data.get("klassifikatsiia_272"):
+                        data["klassifikatsiia_272"] = text
+        
+                    if label == "Серія" and not data.get("sieriia_491"):
+                        data["sieriia_491"] = text
+                    if not data.get("klassifikatsiia_272") or data.get("klassifikatsiia_272") == "":
+                        errors.append(f"Не вдалося визначити Класифікацію")
+                    if not data.get("sieriia_491") or data.get("sieriia_491") == "":
+                        errors.append("Не вдалося знайти колекції на fragrantica.ua та makeup.ua")  
                                     
             if randewoo_url is None or randewoo_url == "":
                 print("finding description ua", flush=True)
-                description_li = container.select_one("li.product-info__description.product-description-content")
+                description_li = container.select_one('[class*="Html__html"]')
                 if description_li and description_li.decode_contents():
                     print("found description ua", flush=True)
                     data["opisaniie_ua_1469370"] = description_li.decode_contents()
                 
         if RU_container and randewoo_url is None or randewoo_url == "":
             print("finding description ru", flush=True)
-            ru_description_li = RU_container.select_one("li.product-info__description.product-description-content")
+            ru_description_li = RU_container.select_one('[class*="Html__html"]')
             # Case 1: RU description exists
             FOUND_RU_DESC = False
             if ru_description_li and ru_description_li.decode_contents().strip():

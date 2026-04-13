@@ -1732,20 +1732,23 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 text = block.get_text(strip=True)
 
                 if label == "Класифікація" and not data.get("klassifikatsiia_272"):
-                        data["klassifikatsiia_272"] = text
+                    data["klassifikatsiia_272"] = text
+                    continue
         
-                    if label == "Серія" and not data.get("sieriia_491"):
-                        data["sieriia_491"] = text
-                    if not data.get("klassifikatsiia_272") or data.get("klassifikatsiia_272") == "":
-                        errors.append(f"Не вдалося визначити Класифікацію")
-                    if not data.get("sieriia_491") or data.get("sieriia_491") == "":
-                        errors.append("Не вдалося знайти колекції на fragrantica.ua та makeup.ua")  
+                if label == "Серія" and not data.get("sieriia_491"):
+                    data["sieriia_491"] = text
+                    continue
             
                 # ❌ skip ingredients block
                 if "Alcohol," in text or "Parfum" in text:
                     continue
             
                 valid_blocks.append(block)
+
+            if not data.get("klassifikatsiia_272") or data.get("klassifikatsiia_272") == "":
+                errors.append(f"Не вдалося визначити Класифікацію")
+            if not data.get("sieriia_491") or data.get("sieriia_491") == "":
+                errors.append("Не вдалося знайти колекції на fragrantica.ua та makeup.ua")  
             
             # take the first valid block (usually the actual description)
             if valid_blocks:

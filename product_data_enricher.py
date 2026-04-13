@@ -1382,7 +1382,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 html_content = await page.content()
                 soup = BeautifulSoup(html_content, "html.parser")
             except Exception as e:
-                print(f"[ERROR] Failed to fetch makeup UA url: {e}", flush=True))
+                print(f"[ERROR] Failed to fetch makeup UA url: {e}", flush=True)
             finally:
                 await context.close()
     
@@ -1404,7 +1404,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 html_content = await page.content()
                 RU_soup = BeautifulSoup(html_content, "html.parser")
             except Exception as e:
-                print(f"[ERROR] Failed to fetch makeup RU url: {e}", flush=True))
+                print(f"[ERROR] Failed to fetch makeup RU url: {e}", flush=True)
             finally:
                 await context.close()
     

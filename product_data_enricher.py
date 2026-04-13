@@ -1723,7 +1723,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         
             description_html = ""
         
-            blocks = soup.select('[class*="Html__html"]')
+            blocks = container.select('[class*="Html__html"]')
             valid_blocks = []
         
             for block in blocks:
@@ -1769,7 +1769,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             print("finding description ru", flush=True)
             description_html = ""
         
-            blocks = soup.select('[class*="Html__html"]')
+            blocks = RU_container.select('[class*="Html__html"]')
             valid_blocks = []
         
             for block in blocks:

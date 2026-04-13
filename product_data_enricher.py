@@ -1385,11 +1385,138 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 print(f"[ERROR] Failed to fetch makeup UA url: {e}", flush=True)
             finally:
                 await context.close()
+
+        if randewoo_url:
+            context = await browser.new_context()
+            page = await context.new_page()
+            description_html_ru = None
+            try:
+                await page.goto(randewoo_url, wait_until='domcontentloaded', timeout=30000)
+                await page.wait_for_timeout(5000)
+        
+                try:
+                    scripts_content = await page.eval_on_selector_all(
+                        'script[type="application/ld+json"]',
+                        "elements => elements.map(e => e.textContent)"
+                    )
+                    print(f"Found {len(scripts_content)} JSON-LD scripts")
+        
+                    for i, content in enumerate(scripts_content, 1):
+                        try:
+                            data2 = json.loads(content)
+                            items2 = data2 if isinstance(data2, list) else [data2]
+                            for item in items2:
+                                if item.get("@type") == "Product":
+                                    description_html_ru = unescape(item["description"]).strip()
+                                    print("Found product description!", flush=True)
+                                    break
+                            if description_html_ru:
+                                break
+                        except Exception as e:
+                            print(f"Script #{i} JSON parse error:", e)
+                except Exception as e:
+                    print("Error evaluating scripts:", e)
+        
+            except Exception as e:
+                print(f"[ERROR] Failed to fetch randewoo url: {e}")
+            finally:
+                await context.close()
+        
+            if description_html_ru:
+                soup_desc = BeautifulSoup(description_html_ru, "html.parser")
+                for p in soup_desc.find_all("p"):
+                    translated_text = GoogleTranslator(source='ru', target='uk').translate(p.get_text())
+                    p.string = translated_text
+                if soup_desc and str(soup_desc):
+                    data["opisaniie_ua_1469370"] = str(soup_desc)
+                else:
+                    errors.append("не вдалося перекласти опис на рандеву з ru на ua")
+                del soup_desc
+                data["opisaniie_ru_1469371"] = description_html_ru
+            else:
+                errors.append("Не вдалося знайти опис на рандеву!")
     
         if soup:
             print("soup exists", flush=True)
+        
+            # -------------------------
+            # 1. CHARACTERISTICS BLOCK
+            # -------------------------
             container = soup.select_one(".ProductCharacteristics__content")
-            print(f"Container: {container}", flush=True)
+        
+            if container:
+                print("container exists", flush=True)
+        
+                block = container.select_one('[class*="Html__html"]')
+        
+                if block:
+                    for strong in block.find_all("strong"):
+                        label = strong.get_text(strip=True).replace(":", "")
+        
+                        value = strong.next_sibling
+                        if value:
+                            value = str(value).strip()
+                        else:
+                            value = ""
+        
+                        if label == "Класифікація" and not data.get("klassifikatsiia_272"):
+                            data["klassifikatsiia_272"] = value
+        
+                        if label == "Серія" and not data.get("sieriia_491"):
+                            data["sieriia_491"] = value
+        
+            # validation
+            if not data.get("klassifikatsiia_272"):
+                errors.append("Не вдалося визначити Класифікацію")
+        
+            if not data.get("sieriia_491"):
+                errors.append("Не вдалося знайти колекції")
+        
+            # -------------------------
+            # 2. DESCRIPTION BLOCK
+            # -------------------------
+            description_html = ""
+        
+            blocks = soup.select('[class*="Html__html"]')
+        
+            for block in blocks:
+                text = block.get_text(" ", strip=True)
+        
+                # ❌ skip characteristics block
+                if "Бренд:" in text and "Класифікація:" in text:
+                    continue
+        
+                # ❌ skip ingredients
+                if "Alcohol," in text or "Parfum" in text:
+                    continue
+        
+                paragraphs = block.find_all("p")
+        
+                if paragraphs:
+                    description_html = "".join(str(p) for p in paragraphs)
+                    break
+        
+            # fallback (rare cases where no <p>)
+            if not description_html:
+                for block in blocks:
+                    text = block.get_text(" ", strip=True)
+        
+                    if "Alcohol," in text:
+                        continue
+        
+                    if len(text) > 200:
+                        description_html = str(block)
+                        break
+        
+            # -------------------------
+            # 3. SAVE
+            # -------------------------
+            if not randewoo_url:
+                print("found description ua", flush=True)
+                data["opisaniie_ua_1469370"] = description_html
+            #print("soup exists", flush=True)
+            #container = soup.select_one(".ProductCharacteristics__content")
+            #print(f"Container: {container}", flush=True)
             del soup
     
         if RU_url:
@@ -1666,104 +1793,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 
         if fragrantica_url:
             await fragrantica_scrape(fragrantica_url)
-    
-        if randewoo_url:
-            context = await browser.new_context()
-            page = await context.new_page()
-            description_html_ru = None
-            try:
-                await page.goto(randewoo_url, wait_until='domcontentloaded', timeout=30000)
-                await page.wait_for_timeout(5000)
-        
-                try:
-                    scripts_content = await page.eval_on_selector_all(
-                        'script[type="application/ld+json"]',
-                        "elements => elements.map(e => e.textContent)"
-                    )
-                    print(f"Found {len(scripts_content)} JSON-LD scripts")
-        
-                    for i, content in enumerate(scripts_content, 1):
-                        try:
-                            data2 = json.loads(content)
-                            items2 = data2 if isinstance(data2, list) else [data2]
-                            for item in items2:
-                                if item.get("@type") == "Product":
-                                    description_html_ru = unescape(item["description"]).strip()
-                                    print("Found product description!", flush=True)
-                                    break
-                            if description_html_ru:
-                                break
-                        except Exception as e:
-                            print(f"Script #{i} JSON parse error:", e)
-                except Exception as e:
-                    print("Error evaluating scripts:", e)
-        
-            except Exception as e:
-                print(f"[ERROR] Failed to fetch randewoo url: {e}")
-            finally:
-                await context.close()
-        
-            if description_html_ru:
-                soup_desc = BeautifulSoup(description_html_ru, "html.parser")
-                for p in soup_desc.find_all("p"):
-                    translated_text = GoogleTranslator(source='ru', target='uk').translate(p.get_text())
-                    p.string = translated_text
-                if soup_desc and str(soup_desc):
-                    data["opisaniie_ua_1469370"] = str(soup_desc)
-                else:
-                    errors.append("не вдалося перекласти опис на рандеву з ru на ua")
-                del soup_desc
-                data["opisaniie_ru_1469371"] = description_html_ru
-            else:
-                errors.append("Не вдалося знайти опис на рандеву!")
-
-        print(f"Container: {container}", flush=True)
-        if container:
-            print("container exists", flush=True)
-        
-            description_html = ""
-        
-            blocks = container.select('[class*="Html__html"]')
-            valid_blocks = []
-        
-            for block in blocks:
-                text = block.get_text(strip=True)
-        
-                # ❌ skip ingredients
-                if "Alcohol," in text or "Parfum" in text:
-                    continue
-        
-                # extract labels inside this block
-                for p in block.find_all("p"):
-                    strong = p.find("strong")
-                    if not strong:
-                        continue
-        
-                    label = strong.get_text(strip=True).replace("—", "").replace(":", "")
-                    value = p.get_text(strip=True).replace(strong.get_text(strip=True), "").strip(" —")
-        
-                    if label == "Класифікація" and not data.get("klassifikatsiia_272"):
-                        data["klassifikatsiia_272"] = value
-        
-                    if label == "Серія" and not data.get("sieriia_491"):
-                        data["sieriia_491"] = value
-        
-                valid_blocks.append(block)
-        
-            if not data.get("klassifikatsiia_272"):
-                errors.append("Не вдалося визначити Класифікацію")
-        
-            if not data.get("sieriia_491"):
-                errors.append("Не вдалося знайти колекції")
-        
-            if valid_blocks:
-                description_html = "".join(
-                    str(p) for p in valid_blocks[0].find_all("p")
-                )
-        
-            if not randewoo_url:
-                print("found description ua", flush=True)
-                data["opisaniie_ua_1469370"] = description_html
                 
         if RU_container and randewoo_url is None or randewoo_url == "":
             print("finding description ru", flush=True)

@@ -1389,6 +1389,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         if soup:
             print("soup exists", flush=True)
             container = soup.select_one(".ProductCharacteristics__content")
+            print(f"Container: {container}", flush=True)
             del soup
     
         if RU_url:

@@ -1719,70 +1719,81 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         print(f"Container: {container}", flush=True)
         if container:
             print("container exists", flush=True)
-            html_block = container.select_one('[class*="Html__html"]')
-            description_html = ""
-
-            # find all description blocks (there may be 1–2)
-            blocks = soup.select('[class*="Html__html"]')
-            
-            valid_blocks = []
-            
-            for block in blocks:
-                label = strong.get_text(strip=True).replace("—", "").replace(":", "")
-                text = block.get_text(strip=True)
-
-                if label == "Класифікація" and not data.get("klassifikatsiia_272"):
-                    data["klassifikatsiia_272"] = text
-                    continue
         
-                if label == "Серія" and not data.get("sieriia_491"):
-                    data["sieriia_491"] = text
-                    continue
-            
-                # ❌ skip ingredients block
+            description_html = ""
+        
+            blocks = soup.select('[class*="Html__html"]')
+            valid_blocks = []
+        
+            for block in blocks:
+                text = block.get_text(strip=True)
+        
+                # ❌ skip ingredients
                 if "Alcohol," in text or "Parfum" in text:
                     continue
-            
+        
+                # extract labels inside this block
+                for p in block.find_all("p"):
+                    strong = p.find("strong")
+                    if not strong:
+                        continue
+        
+                    label = strong.get_text(strip=True).replace("—", "").replace(":", "")
+                    value = p.get_text(strip=True).replace(strong.get_text(strip=True), "").strip(" —")
+        
+                    if label == "Класифікація" and not data.get("klassifikatsiia_272"):
+                        data["klassifikatsiia_272"] = value
+        
+                    if label == "Серія" and not data.get("sieriia_491"):
+                        data["sieriia_491"] = value
+        
                 valid_blocks.append(block)
-
-            if not data.get("klassifikatsiia_272") or data.get("klassifikatsiia_272") == "":
-                errors.append(f"Не вдалося визначити Класифікацію")
-            if not data.get("sieriia_491") or data.get("sieriia_491") == "":
-                errors.append("Не вдалося знайти колекції на fragrantica.ua та makeup.ua")  
-            
-            # take the first valid block (usually the actual description)
+        
+            if not data.get("klassifikatsiia_272"):
+                errors.append("Не вдалося визначити Класифікацію")
+        
+            if not data.get("sieriia_491"):
+                errors.append("Не вдалося знайти колекції")
+        
             if valid_blocks:
                 description_html = "".join(
                     str(p) for p in valid_blocks[0].find_all("p")
                 )
-            if randewoo_url is None or randewoo_url == "":
+        
+            if not randewoo_url:
                 print("found description ua", flush=True)
                 data["opisaniie_ua_1469370"] = description_html
                 
         if RU_container and randewoo_url is None or randewoo_url == "":
             print("finding description ru", flush=True)
-            html_block = container.select_one('[class*="Html__html"]')
             description_html = ""
-
-            # find all description blocks (there may be 1–2)
+        
             blocks = soup.select('[class*="Html__html"]')
-            
             valid_blocks = []
-            
+        
             for block in blocks:
                 text = block.get_text(strip=True)
-
-            if "Alcohol," in text or "Parfum" in text:
+        
+                # ❌ skip ingredients
+                if "Alcohol," in text or "Parfum" in text:
                     continue
-            
+        
+                # extract labels inside this block
+                for p in block.find_all("p"):
+                    strong = p.find("strong")
+                    if not strong:
+                        continue
+        
+                    value = p.get_text(strip=True).replace(strong.get_text(strip=True), "").strip(" —")
+        
+        
                 valid_blocks.append(block)
-            
-            # take the first valid block (usually the actual description)
-            FOUND_RU_DESC = False
+                
             if valid_blocks:
                 description_html = "".join(
                     str(p) for p in valid_blocks[0].find_all("p")
                 )
+        
                 print("found description ru", flush=True)
                 data["opisaniie_ru_1469371"] = description_html
                 FOUND_RU_DESC = True

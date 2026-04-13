@@ -1438,10 +1438,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
     
         if soup:
             print("soup exists", flush=True)
-        
-            # -------------------------
-            # 1. CHARACTERISTICS BLOCK
-            # -------------------------
             container = soup.select_one(".ProductCharacteristics__content")
         
             if container:
@@ -1465,16 +1461,12 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                         if label == "Серія" and not data.get("sieriia_491"):
                             data["sieriia_491"] = value
         
-            # validation
             if not data.get("klassifikatsiia_272"):
                 errors.append("Не вдалося визначити Класифікацію")
         
             if not data.get("sieriia_491"):
                 errors.append("Не вдалося знайти колекції")
-        
-            # -------------------------
-            # 2. DESCRIPTION BLOCK
-            # -------------------------
+
             description_html = ""
         
             blocks = soup.select('[class*="Html__html"]')
@@ -1482,11 +1474,9 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             for block in blocks:
                 text = block.get_text(" ", strip=True)
         
-                # ❌ skip characteristics block
                 if "Бренд:" in text and "Класифікація:" in text:
                     continue
         
-                # ❌ skip ingredients
                 if "Alcohol," in text or "Parfum" in text:
                     continue
         
@@ -1496,7 +1486,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     description_html = "".join(str(p) for p in paragraphs)
                     break
         
-            # fallback (rare cases where no <p>)
             if not description_html:
                 for block in blocks:
                     text = block.get_text(" ", strip=True)
@@ -1508,14 +1497,10 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                         description_html = str(block)
                         break
         
-            # -------------------------
-            # 3. SAVE
-            # -------------------------
-            if not randewoo_url:
+            if not randewoo_url and description_html:
                 print("found description ua", flush=True)
                 data["opisaniie_ua_1469370"] = description_html
             #print("soup exists", flush=True)
-            #container = soup.select_one(".ProductCharacteristics__content")
             #print(f"Container: {container}", flush=True)
             del soup
     
@@ -1539,6 +1524,76 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         if RU_soup:
             print("ru soup exists", flush=True)
             RU_container = RU_soup.select_one(".ProductCharacteristics__content")
+            if RU_container and randewoo_url is None or randewoo_url == "":
+                print("finding description ru", flush=True)
+                FOUND_RU_DESC = False
+                description_html = ""
+            
+                blocks = RU_soup.select('[class*="Html__html"]')
+            
+                for block in blocks:
+                    text = block.get_text(" ", strip=True)
+            
+                    if "Бренд:" in text and "Класифікація:" in text:
+                        continue
+            
+                    if "Alcohol," in text or "Parfum" in text:
+                        continue
+            
+                    paragraphs = block.find_all("p")
+            
+                    if paragraphs:
+                        description_html = "".join(str(p) for p in paragraphs)
+                        break
+            
+                if not description_html:
+                    for block in blocks:
+                        text = block.get_text(" ", strip=True)
+            
+                        if "Alcohol," in text:
+                            continue
+            
+                        if len(text) > 200:
+                            description_html = str(block)
+                            break
+            
+                if not randewoo_url and description_html:
+                    print("found description ua", flush=True)
+                    data["opisaniie_ru_1469371"] = description_html
+                    FOUND_RU_DESC = True
+                    if not data.get("opisaniie_ua_1469370") or not data["opisaniie_ua_1469370"]:
+                        try:
+                            translated_text = GoogleTranslator(
+                                source='ru',
+                                target='uk'
+                            ).translate(data["opisaniie_ru_1469371"]).strip()
+        
+                            if translated_text:
+                                data["opisaniie_ua_1469370"] = ''.join(
+                                f'<p>{p.strip()}</p>'
+                                for p in translated_text.split('\n\n')
+                                if p.strip()
+                                )
+                        except Exception:
+                            errors.append("Не вдалося визначити ua опис з makeup.ua та не вдалося перекласти опис з ru на ua", flush=True)
+        
+                if data.get("opisaniie_ua_1469370") and data["opisaniie_ua_1469370"] and not FOUND_RU_DESC:
+                    try:
+                        translated_text = GoogleTranslator(
+                            source='uk',
+                            target='ru'
+                        ).translate(data["opisaniie_ua_1469370"]).strip()
+        
+                        if translated_text:
+                            data["opisaniie_ru_1469371"] = ''.join(
+                            f'<p>{p.strip()}</p>'
+                            for p in translated_text.split('\n\n')
+                            if p.strip()
+                            )
+        
+                    except Exception:
+                        errors.append("Не вдалося перекласти опис з ua на ru", flush=True)
+                        
             del RU_soup
     
         async def get_fragrantica_page(browser, url: str) -> BeautifulSoup | None:
@@ -1793,72 +1848,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 
         if fragrantica_url:
             await fragrantica_scrape(fragrantica_url)
-                
-        if RU_container and randewoo_url is None or randewoo_url == "":
-            print("finding description ru", flush=True)
-            description_html = ""
-        
-            blocks = RU_container.select('[class*="Html__html"]')
-            valid_blocks = []
-        
-            for block in blocks:
-                text = block.get_text(strip=True)
-        
-                # ❌ skip ingredients
-                if "Alcohol," in text or "Parfum" in text:
-                    continue
-        
-                # extract labels inside this block
-                for p in block.find_all("p"):
-                    strong = p.find("strong")
-                    if not strong:
-                        continue
-        
-                    value = p.get_text(strip=True).replace(strong.get_text(strip=True), "").strip(" —")
-        
-        
-                valid_blocks.append(block)
-                
-            if valid_blocks:
-                description_html = "".join(
-                    str(p) for p in valid_blocks[0].find_all("p")
-                )
-        
-                print("found description ru", flush=True)
-                data["opisaniie_ru_1469371"] = description_html
-                FOUND_RU_DESC = True
-                if not data.get("opisaniie_ua_1469370") or not data["opisaniie_ua_1469370"]:
-                    try:
-                        translated_text = GoogleTranslator(
-                            source='ru',
-                            target='uk'
-                        ).translate(data["opisaniie_ru_1469371"]).strip()
-    
-                        if translated_text:
-                            data["opisaniie_ua_1469370"] = ''.join(
-                            f'<p>{p.strip()}</p>'
-                            for p in translated_text.split('\n\n')
-                            if p.strip()
-                            )
-                    except Exception:
-                        errors.append("Не вдалося визначити ua опис з makeup.ua та не вдалося перекласти опис з ru на ua", flush=True)
-    
-            if data.get("opisaniie_ua_1469370") and data["opisaniie_ua_1469370"] and not FOUND_RU_DESC:
-                try:
-                    translated_text = GoogleTranslator(
-                        source='uk',
-                        target='ru'
-                    ).translate(data["opisaniie_ua_1469370"]).strip()
-    
-                    if translated_text:
-                        data["opisaniie_ru_1469371"] = ''.join(
-                        f'<p>{p.strip()}</p>'
-                        for p in translated_text.split('\n\n')
-                        if p.strip()
-                        )
-    
-                except Exception:
-                    errors.append("Не вдалося перекласти опис з ua на ru", flush=True)
     
         custom_fields_array = [{"name": k, "value": str(v)} for k, v in data.items() if v is not None]
         print(custom_fields_array)

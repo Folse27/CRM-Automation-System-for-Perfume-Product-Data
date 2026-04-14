@@ -1371,12 +1371,29 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 else route.continue_()
             )
             try:
-                await page.goto(url, timeout=15000)
+                await page.goto(url, timeout=20000)
                 await asyncio.sleep(5)
                 html_content = await page.content()
                 soup = BeautifulSoup(html_content, "html.parser")
             except Exception as e:
                 print(f"[ERROR] Failed to fetch makeup UA url: {e}", flush=True)
+            finally:
+                await context.close()
+
+        if RU_url:
+            context = await browser.new_context()
+            page = await context.new_page()
+            await page.route("**/*", lambda route: route.abort()
+                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
+                else route.continue_()
+            )
+            try:
+                await page.goto(url, timeout=20000)
+                await asyncio.sleep(5)
+                html_content = await page.content()
+                RU_soup = BeautifulSoup(html_content, "html.parser")
+            except Exception as e:
+                print(f"[ERROR] Failed to fetch makeup RU url: {e}", flush=True)
             finally:
                 await context.close()
 
@@ -1386,7 +1403,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             description_html_ru = None
             try:
                 await page.goto(randewoo_url, wait_until='domcontentloaded', timeout=30000)
-                await page.wait_for_timeout(5000)
+                await page.wait_for_timeout(15000)
         
                 try:
                     scripts_content = await page.eval_on_selector_all(
@@ -1483,13 +1500,11 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         
             del soup
         
-        
         if RU_soup:
             print("ru soup exists", flush=True)
             RU_container = RU_soup.select_one(".ProductCharacteristics__content")
             if RU_container and randewoo_url is None or randewoo_url == "":
                 print("finding description ru", flush=True)
-                FOUND_RU_DESC = False
                 description_html = ""
         
                 content_blocks = RU_soup.select(".ProductCharacteristics__content")
@@ -1509,7 +1524,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 if not randewoo_url and description_html:
                     print("found description ru", flush=True)
                     data["opisaniie_ru_1469371"] = description_html
-                    FOUND_RU_DESC = True
                     if not data.get("opisaniie_ua_1469370") or not data["opisaniie_ua_1469370"]:
                         try:
                             translated_text = GoogleTranslator(
@@ -1524,27 +1538,26 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                                     if p.strip()
                                 )
                         except Exception:
-                            errors.append("Не вдалося визначити ua опис з makeup.ua та не вдалося перекласти опис з ru на ua")
-        
-                if data.get("opisaniie_ua_1469370") and data["opisaniie_ua_1469370"] and not FOUND_RU_DESC:
-                    try:
-                        translated_text = GoogleTranslator(
-                            source='uk',
-                            target='ru'
-                        ).translate(data["opisaniie_ua_1469370"]).strip()
-        
-                        if translated_text:
-                            data["opisaniie_ru_1469371"] = ''.join(
-                                f'<p>{p.strip()}</p>'
-                                for p in translated_text.split('\n\n')
-                                if p.strip()
-                            )
-        
-                    except Exception:
-                        errors.append("Не вдалося перекласти опис з ua на ru")
-        
+                            errors.append("Не вдалося визначити ua опис з makeup.ua та не вдалося перекласти опис з ru на ua")  
             del RU_soup
-    
+        
+        if not randewoo_url and data.get("opisaniie_ua_1469370") and data["opisaniie_ua_1469370"] and (not data.get("opisaniie_ru_1469371") or not data["opisaniie_ua_1469370"]):
+            try:
+                translated_text = GoogleTranslator(
+                    source='uk',
+                    target='ru'
+                ).translate(data["opisaniie_ua_1469370"]).strip()
+            
+                if translated_text:
+                    data["opisaniie_ru_1469371"] = ''.join(
+                        f'<p>{p.strip()}</p>'
+                        for p in translated_text.split('\n\n')
+                        if p.strip()
+                    )
+            
+            except Exception:
+                errors.append("Не вдалося перекласти опис з ua на ru")
+                
         async def get_fragrantica_page(browser, url: str) -> BeautifulSoup | None:
             context = await browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"

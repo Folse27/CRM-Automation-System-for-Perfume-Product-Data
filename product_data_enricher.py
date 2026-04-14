@@ -799,52 +799,46 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             query = quote_plus(search_string)
             search_url = f"{base_url}/ua/search/?q={query}"
             print(search_url, flush=True)
-    
-            headers = {
-            "User-Agent": "Mozilla/5.0"
-            }
-    
+        
+            headers = {"User-Agent": "Mozilla/5.0"}
+        
             response = requests.get(search_url, headers=headers, timeout=10)
             if response.status_code != 200:
                 return None
-    
+        
             soup = BeautifulSoup(response.text, "html.parser")
-    
-            # Get all product items
-            products = soup.select("li.simple-slider-list__item")
+        
+            # New selector for product cards
+            products = soup.select("div.ProductCard__cardContainer")
             del soup
-    
-            brand = re.sub(r"[''`\u2019\u2018]", "", unicodedata.normalize("NFKD", brand).lower().strip().replace(" ", ""))
-            tokens = set(re.sub(r"[’'`]", "", model.lower()).split())
-    
+        
+            brand_norm = re.sub(r"[''`\u2019\u2018]", "", unicodedata.normalize("NFKD", brand).lower().strip().replace(" ", ""))
+            tokens = set(re.sub(r"[''`]", "", model.lower()).split())
+        
             for product in products:
-                # 1️⃣ Match brand from data-brand attribute
-                product_brand = re.sub(r"[''`\u2019\u2018]", "", unicodedata.normalize("NFKD", product.get("data-brand", "")).lower().strip().replace(" ", ""))
-    
-                if brand not in product_brand:
-                    print("SKIPPING BRAND IN MAKEUP PAGE SEARCH", flush=True)
-                    continue  # brand doesn't match → skip
-    
-                # 2️⃣ Match model from visible title
-                name_tag = product.select_one("a.simple-slider-list__name")
+                # Title link is now an <a> with class ProductCard__title
+                name_tag = product.select_one("a.ProductCard__title")
                 if not name_tag:
-                    print("COULDN'T FIND MODEL MAKEUP PAGE SEARCH", flush=True)
                     continue
-    
-                text = name_tag.text
-                text = unicodedata.normalize("NFKD", str(text))
+        
+                text = unicodedata.normalize("NFKD", name_tag.text)
                 text = text.encode("ascii", "ignore").decode()
-    
-                product_title = re.sub(r"[’'`]", "", text.lower())
-                print(brand, tokens, product_title, flush=True)
+                product_title = re.sub(r"[''`]", "", text.lower())
+        
+                # Check brand appears in title
+                title_no_spaces = product_title.replace(" ", "")
+                if brand_norm not in title_no_spaces:
+                    print("SKIPPING BRAND IN MAKEUP PAGE SEARCH", flush=True)
+                    continue
+        
+                print(brand_norm, tokens, product_title, flush=True)
                 if not all(token in product_title for token in tokens):
                     continue
-    
-                # 3️⃣ Extract link
+        
                 href = name_tag.get("href")
                 if href:
                     return base_url + href.rstrip("/")
-    
+        
             errors.append("Не вдалося знайти makeup.ua url")
             return None
     
@@ -1466,61 +1460,30 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         
             if not data.get("sieriia_491"):
                 errors.append("Не вдалося знайти колекції")
-
+        
             description_html = ""
         
-            blocks = soup.select('[class*="Html__html"]')
+            content_blocks = soup.select(".ProductCharacteristics__content")
         
-            for block in blocks:
-                text = block.get_text(" ", strip=True)
-        
-                if "Бренд:" in text and "Класифікація:" in text:
-                    continue
-        
-                if "Alcohol," in text or "Parfum" in text:
-                    continue
-        
-                paragraphs = block.find_all("p")
-        
-                if paragraphs:
-                    description_html = "".join(str(p) for p in paragraphs)
-                    break
-        
-            if not description_html:
-                for block in blocks:
+            if len(content_blocks) > 1:
+                desc_container = content_blocks[1]
+                block = desc_container.select_one('[class*="Html__html"]')
+                if block:
                     text = block.get_text(" ", strip=True)
-        
-                    if "Alcohol," in text:
-                        continue
-        
-                    if len(text) > 200:
-                        description_html = str(block)
-                        break
+                    if "Alcohol," not in text and "Parfum" not in text:
+                        paragraphs = block.find_all("p")
+                        if paragraphs:
+                            description_html = "".join(str(p) for p in paragraphs)
+                        elif len(text) > 300:
+                            description_html = str(block)
         
             if not randewoo_url and description_html:
                 print("found description ua", flush=True)
                 data["opisaniie_ua_1469370"] = description_html
-            #print("soup exists", flush=True)
-            #print(f"Container: {container}", flush=True)
+        
             del soup
-    
-        if RU_url:
-            context = await browser.new_context()
-            page = await context.new_page()
-            await page.route("**/*", lambda route: route.abort()
-                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
-                else route.continue_()
-            )
-            try:
-                await page.goto(RU_url, timeout=15000)
-                await asyncio.sleep(5)
-                html_content = await page.content()
-                RU_soup = BeautifulSoup(html_content, "html.parser")
-            except Exception as e:
-                print(f"[ERROR] Failed to fetch makeup RU url: {e}", flush=True)
-            finally:
-                await context.close()
-    
+        
+        
         if RU_soup:
             print("ru soup exists", flush=True)
             RU_container = RU_soup.select_one(".ProductCharacteristics__content")
@@ -1528,37 +1491,23 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 print("finding description ru", flush=True)
                 FOUND_RU_DESC = False
                 description_html = ""
-            
-                blocks = RU_soup.select('[class*="Html__html"]')
-            
-                for block in blocks:
-                    text = block.get_text(" ", strip=True)
-            
-                    if "Бренд:" in text and "Класифікація:" in text:
-                        continue
-            
-                    if "Alcohol," in text or "Parfum" in text:
-                        continue
-            
-                    paragraphs = block.find_all("p")
-            
-                    if paragraphs:
-                        description_html = "".join(str(p) for p in paragraphs)
-                        break
-            
-                if not description_html:
-                    for block in blocks:
+        
+                content_blocks = RU_soup.select(".ProductCharacteristics__content")
+        
+                if len(content_blocks) > 1:
+                    desc_container = content_blocks[1]
+                    block = desc_container.select_one('[class*="Html__html"]')
+                    if block:
                         text = block.get_text(" ", strip=True)
-            
-                        if "Alcohol," in text:
-                            continue
-            
-                        if len(text) > 200:
-                            description_html = str(block)
-                            break
-            
+                        if "Alcohol," not in text and "Parfum" not in text:
+                            paragraphs = block.find_all("p")
+                            if paragraphs:
+                                description_html = "".join(str(p) for p in paragraphs)
+                            elif len(text) > 300:
+                                description_html = str(block)
+        
                 if not randewoo_url and description_html:
-                    print("found description ua", flush=True)
+                    print("found description ru", flush=True)
                     data["opisaniie_ru_1469371"] = description_html
                     FOUND_RU_DESC = True
                     if not data.get("opisaniie_ua_1469370") or not data["opisaniie_ua_1469370"]:
@@ -1570,12 +1519,12 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         
                             if translated_text:
                                 data["opisaniie_ua_1469370"] = ''.join(
-                                f'<p>{p.strip()}</p>'
-                                for p in translated_text.split('\n\n')
-                                if p.strip()
+                                    f'<p>{p.strip()}</p>'
+                                    for p in translated_text.split('\n\n')
+                                    if p.strip()
                                 )
                         except Exception:
-                            errors.append("Не вдалося визначити ua опис з makeup.ua та не вдалося перекласти опис з ru на ua", flush=True)
+                            errors.append("Не вдалося визначити ua опис з makeup.ua та не вдалося перекласти опис з ru на ua")
         
                 if data.get("opisaniie_ua_1469370") and data["opisaniie_ua_1469370"] and not FOUND_RU_DESC:
                     try:
@@ -1586,14 +1535,14 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         
                         if translated_text:
                             data["opisaniie_ru_1469371"] = ''.join(
-                            f'<p>{p.strip()}</p>'
-                            for p in translated_text.split('\n\n')
-                            if p.strip()
+                                f'<p>{p.strip()}</p>'
+                                for p in translated_text.split('\n\n')
+                                if p.strip()
                             )
         
                     except Exception:
-                        errors.append("Не вдалося перекласти опис з ua на ru", flush=True)
-                        
+                        errors.append("Не вдалося перекласти опис з ua на ru")
+        
             del RU_soup
     
         async def get_fragrantica_page(browser, url: str) -> BeautifulSoup | None:

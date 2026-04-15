@@ -1820,10 +1820,10 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             except Exception:
                 print("couldn't translate from ua to ru", flush=True)
 
-        if not data.get("opisaniie_ua_1469370") and not data["opisaniie_ua_1469370"]:
+        if not data.get("opisaniie_ua_1469370"):
             errors.append("Не вдалося заповнити ua опис")
 
-        if not data.get("opisaniie_ru_1469371") and not data["opisaniie_ru_1469371"]:
+        if not data.get("opisaniie_ru_1469371"):
             errors.append("Не вдалося заповнити ru опис")
     
         custom_fields_array = [{"name": k, "value": str(v)} for k, v in data.items() if v is not None]

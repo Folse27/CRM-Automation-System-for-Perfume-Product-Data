@@ -294,6 +294,7 @@ PERFUME_BRANDS = {
     "Tiffany & Co": ["Tiffany, TIFFANY & CO"],
     "Tiziana Terenzi": [],
     "Tom Ford": [],
+    "Toskovat'": [],
     "Trussardi": [],
     "Ungaro": [],
     "V Canto": [],
@@ -592,6 +593,7 @@ FRAGRANTICA_BRANDS = {
 MAKEUP_BRANDS = {
     "Memo Paris": "Memo",
     "Haute Fragrance Company HFC": "Haute Fragrance Company",
+    "Paco Rabanne": "Rabanne"
 }
 
 UKR_TO_RU = {
@@ -1681,7 +1683,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                             for item in items2:
                                 if item.get("@type") == "Product":
                                     description_html_ru = unescape(item["description"]).strip()
-                                    print("Found product description!", flush=True)
+                                    print("Found randewoo product description!", flush=True)
                                     break
                             if description_html_ru:
                                 break
@@ -1703,11 +1705,9 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 if soup_desc and str(soup_desc):
                     data["opisaniie_ua_1469370"] = str(soup_desc)
                 else:
-                    errors.append("не вдалося перекласти опис на рандеву з ru на ua")
+                    print("couldnt translate ru to ua from randewoo", flush=True)
                 del soup_desc
                 data["opisaniie_ru_1469371"] = description_html_ru
-            else:
-                errors.append("Не вдалося знайти опис на рандеву!")
     
         if soup:
             print("soup exists", flush=True)
@@ -1800,7 +1800,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                                     if p.strip()
                                 )
                         except Exception:
-                            errors.append("Не вдалося визначити ua опис з makeup.ua та не вдалося перекласти опис з ru на ua")  
+                            print("couldn't translate from ru to ua", flush=True)
             del RU_soup
         
         if not randewoo_url and data.get("opisaniie_ua_1469370") and data["opisaniie_ua_1469370"] and (not data.get("opisaniie_ru_1469371") or not data["opisaniie_ua_1469370"]):
@@ -1818,7 +1818,13 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     )
             
             except Exception:
-                errors.append("Не вдалося перекласти опис з ua на ru")
+                print("couldn't translate from ua to ru", flush=True)
+
+        if not data.get("opisaniie_ua_1469370") and not data["opisaniie_ua_1469370"]:
+            errors.append("Не вдалося заповнити ua опис")
+
+        if not data.get("opisaniie_ru_1469371") and not data["opisaniie_ru_1469371"]:
+            errors.append("Не вдалося заповнити ru опис")
     
         custom_fields_array = [{"name": k, "value": str(v)} for k, v in data.items() if v is not None]
         print(custom_fields_array)

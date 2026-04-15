@@ -1744,7 +1744,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         
             content_blocks = soup.select(".ProductCharacteristics__content")
         
-            if len(content_blocks) > 1:
+            if len(content_blocks) >= 1:
                 desc_container = content_blocks[1]
                 block = desc_container.select_one('[class*="Html__html"]')
                 if block:
@@ -1771,7 +1771,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         
                 content_blocks = RU_soup.select(".ProductCharacteristics__content")
         
-                if len(content_blocks) > 1:
+                if len(content_blocks) >= 1:
                     desc_container = content_blocks[1]
                     block = desc_container.select_one('[class*="Html__html"]')
                     if block:

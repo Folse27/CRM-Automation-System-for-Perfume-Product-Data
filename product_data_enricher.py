@@ -1226,37 +1226,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 if any(term in product for term in terms):
                     product_type = ptype
                     break
-    
-        # --- Step 3: Detect sex ---
         sex = ""
-        for s, terms in SEX_TERMS.items():
-            for term in terms:
-                t = term.lower()
-    
-                if len(t) == 1 and t.isalpha():  # M, L, U
-                    pattern = rf"\({re.escape(t)}\)"
-                elif t.isalpha():  # man, woman
-                    pattern = rf"\b{re.escape(t)}\b"
-                else:
-                    pattern = re.escape(t)
-    
-                if re.search(pattern, product.lower()):
-                    sex = s
-                    break
-            if sex:
-                break
-    
-        if product_type:
-            if product_type == "Парфум":
-                data["vid_parfiumiernoi_produktsii_271"] = "Парфуми"
-                if sex in ["для жінок", "унісекс"]:
-                    product_type = "Парфуми"
-                else:
-                    product_type = "Парфум"
-            else:
-                data["vid_parfiumiernoi_produktsii_271"] = product_type
-        else:
-            errors.append("Не вдалось визначити поле Вид парфюмерной продукции")
     
         # --- Step 5: Detect volume and convert ml → мл ---
         volume = ""
@@ -1295,8 +1265,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         # --- Step 6: Combine components for UA ---
         name_checkbox = ""
         print(f"special_mark: {special_mark}")
-        print(f"product_type: {product_type}")
-        print(f"sex: {sex}")
         print(f"brand: {brand}")
         print(f"exact_collection: {exact_collection}")
         print(f"volume: {volume}")
@@ -1316,6 +1284,305 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             components = [fragrantica_brand, exact_collection]
             search_name = " ".join([comp for comp in components if comp])
             print(search_name, flush=True)
+
+        async def get_fragrantica_page(browser, url: str) -> BeautifulSoup | None:
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+            )
+            page = await context.new_page()
+            await page.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+            )
+            await page.route("**/*", lambda route: route.abort()
+                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
+                else route.continue_()
+            )
+            try:
+                await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                await page.wait_for_selector("#perfume-description-content", timeout=15000)
+                content = await page.content()
+                return BeautifulSoup(content, "html.parser")
+            except Exception as e:
+                print(f"[ERROR] Failed to fetch {url}: {e}")
+                return None
+            finally:
+                await context.close()  # closes page too
+        
+        async def fragrantica_scrape(fragrantica_url: str):
+            try:
+                fragrantica_soup = await get_fragrantica_page(browser, fragrantica_url)
+    
+                collection = ""
+                description_block = ""
+                fragrantica_description = ""
+                accords = []
+                accords_header = ""
+                
+                if fragrantica_soup:
+                    gender_span = fragrantica_soup.find("span", class_=lambda c: c and (
+                        all(cls in c for cls in ["text-lg", "md:text-2xl", "whitespace-nowrap"]) and
+                        any(cls in c for cls in ["text-blue-600", "text-teal-600", "text-pink-600"])
+                    ))
+                    if gender_span:
+                        classes = gender_span.get("class", [])
+                        if "text-blue-600" in classes:
+                            sex = "для чоловіків"
+                        elif "text-pink-600" in classes:
+                            sex = "для жінок"
+                        elif "text-teal-600" in classes:
+                            sex = "унісекс"
+                        print(f"sex: {sex}")
+                        
+                    if not sex or sex == "":
+                        for s, terms in SEX_TERMS.items():
+                            for term in terms:
+                                t = term.lower()
+                    
+                                if len(t) == 1 and t.isalpha():  # M, L, U
+                                    pattern = rf"\({re.escape(t)}\)"
+                                elif t.isalpha():  # man, woman
+                                    pattern = rf"\b{re.escape(t)}\b"
+                                else:
+                                    pattern = re.escape(t)
+                    
+                                if re.search(pattern, product.lower()):
+                                    sex = s
+                                    break
+                            if sex:
+                                break
+
+                    if sex and product_type:
+                        if product_type == "Парфум":
+                            data["vid_parfiumiernoi_produktsii_271"] = "Парфуми"
+                            if sex in ["для жінок", "унісекс"]:
+                                product_type = "Парфуми"
+                            else:
+                                product_type = "Парфум"
+                        else:
+                            data["vid_parfiumiernoi_produktsii_271"] = product_type
+                    else:
+                        errors.append("Не вдалось визначити поле Вид парфюмерной продукции")
+                        
+                    collection = fragrantica_soup.find("small", string=re.compile(r"Колекції"))
+                    description_block = fragrantica_soup.find("div", id="perfume-description-content")
+                    accords_header = fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower())
+                    del fragrantica_soup
+            
+                if collection:
+                    parent = collection.find_parent("h3")
+                    name = parent.get_text(strip=True).replace("Колекції", "").strip()
+                    data["sieriia_491"] = name
+                    #print("Колекції:", name)
+                else:
+                    print("Колекції not found")
+        
+                if description_block:
+                    fragrantica_description = description_block.get_text(separator=" ", strip=True)
+                    print(fragrantica_description, flush=True)
+                else:
+                    errors.append("Не вдалося знайти опис на fragrantica.ua(для нот та типу аромата")
+                    print("Description not found")
+        
+                def format_notes(desc):
+                    desc = re.sub(r'\s+', ' ', desc).strip()
+                    print("formating", flush=True)
+        
+                    patterns = {
+                        "Верхні ноти": r"(?:верхн(?:і|я)\s+ноти?|початков(?:і|а)\s+ноти?)\s*[:：]?\s*([^\.;]+)",
+                        "Ноти серця": r"(?:нот[аи]?\s+серця|серцев(?:і|а)\s+ноти?)\s*[:：]?\s*([^\.;]+)",
+                        "Базові ноти": r"(?:базов(?:і|а)\s+ноти?|ноти\s+бази)\s*[:：]?\s*([^\.;]+)"
+                    }
+        
+                    formatted_sections = []
+        
+                    for key, pattern in patterns.items():
+                        match = re.search(pattern, desc, re.IGNORECASE)
+                        if match:
+                            print(match.group(1))
+                            notes = match.group(1)
+        
+                            # Remove only leading conjunctions like 'а', 'та', 'і' (not part of note names)
+                            notes = re.sub(r'^(?:а|та|і)\b\s*:?\s*', '', notes, flags=re.IGNORECASE)
+        
+                            notes_list = [
+                                n.strip().capitalize()
+                                for n in re.split(r',|\sі\s|\sта\s', notes)
+                                if n.strip()
+                            ]
+        
+                            formatted_sections.append(f"{key}: {', '.join(notes_list)}.")
+        
+                    return ' '.join(formatted_sections)
+        
+                required_sections = ["Верхні ноти:", "Ноти серця:", "Базові ноти:"]
+        
+                def is_valid_notes(text):
+                    return all(section in text for section in required_sections)
+                
+                final_notes = ""
+                if fragrantica_description:
+                    final_notes = format_notes(fragrantica_description)
+                    year = re.search(r'\b(19\d{2}|2\d{3})\b', fragrantica_description)
+                    if year:
+                        data["god_vypuska_270"] = year.group()
+                        print(year.group())
+                    print(f"notes 1:{final_notes}", flush=True)
+                    print(is_valid_notes(final_notes))
+                        
+                if final_notes:
+                    if is_valid_notes(final_notes):
+                        data["noty_446"] = final_notes
+                    else:
+                        errors.append("У фінальних нотах неправильна структура або їх немає на fragrantica.ua")
+                        print("Notes structure is incomplete1:", final_notes)
+                else:
+                    errors.append("У фінальних нотах неправильна структура або їх немає на fragrantica.ua")
+                    print("Notes structure is incomplete2:", final_notes)
+        
+                mapped_aroma_types = []
+                seen = set()
+        
+                for aroma_type, terms in AROMA_TYPE_TERMS.items():
+                    for term in terms:
+                        term_lower = term.lower()
+        
+                        # Find full word matches only (avoid partial word issues)
+                        pattern = r'\b' + re.escape(term_lower) + r'\b'
+                    
+                        if re.search(pattern, fragrantica_description):
+        
+                            pattern = r'\b' + re.escape(term_lower) + r'\b(?=[\s\.,;]|$)'
+        
+                            # ❌ Skip if it's followed by "ноти"
+                        if re.search(pattern + r'\s+ноти', fragrantica_description, re.IGNORECASE):
+                            continue
+        
+                        if re.search(pattern, fragrantica_description, re.IGNORECASE):
+                            if aroma_type not in seen:
+                                mapped_aroma_types.append(aroma_type)
+                                seen.add(aroma_type)
+        
+                accords_container = None
+        
+                if accords_header:
+                    accords_container = accords_header.find_next_sibling("div")
+        
+                if accords_container:
+                    accords = [
+                        span.get_text(strip=True)
+                        for span in accords_container.find_all("span", class_="truncate")
+                    ]
+        
+                result_string_accords = ""
+                if accords:
+                    print(f"accords raw:{accords}")
+        
+                    # Merge description aroma types and accord aroma types
+                    mapped_types = mapped_aroma_types.copy()  # start with description values
+        
+                    for accord in accords:
+                        accord_lower = accord.lower()
+                        for aroma_type, terms in AROMA_TYPE_TERMS.items():
+                            for term in terms:
+                                if term.lower() in accord_lower:
+                                    if aroma_type not in mapped_types:
+                                        mapped_types.append(aroma_type)
+                                    break
+        
+                    if mapped_types:
+                        # Convert to comma-separated string
+                        result_string_accords = ", ".join(mapped_types)
+                        if result_string_accords:
+                            data["tip_aromata_269"] = result_string_accords
+                        else:
+                            errors.append("Не вдалося визначити аккорди на fragrantica.ua")
+            except Exception as e:
+                print(f"[ERROR] fragrantica_scrape failed: {e}")
+        print(f"FRAGRANTICA{fragrantica_url}", flush=True)
+        if search_name and not fragrantica_url:
+            fragrantica_url = await find_fragrantica_url(browser, search_name, fragrantica_brand, exact_collection, product_type)
+                
+        if fragrantica_url:
+            debug_message.append(f"fragrantica url: {fragrantica_url}")
+            await fragrantica_scrape(fragrantica_url)
+            print(fragrantica_url, flush=True)
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+                viewport={"width": 1280, "height": 800},
+                device_scale_factor=1,
+                java_script_enabled=True,
+            )
+            page = await context.new_page()
+            try:
+                await page.goto(fragrantica_url, wait_until="domcontentloaded", timeout=60000)
+                await page.wait_for_function("""
+                () => {
+                    const cards = document.querySelectorAll('.tw-rating-card > div');
+                    return cards.length > 0;
+                }""", timeout=30000)
+                await page.wait_for_selector('.tw-rating-card .flex.flex-col', timeout=45000)
+        
+                def parse_number(text):
+                    text = text.lower().replace(',', '').strip()
+                    if 'k' in text:
+                        return int(float(text.replace('k', '')) * 1000)
+                    return int(text)
+        
+                cards = await page.query_selector_all('.tw-rating-card .flex.flex-col')
+                print("Number of rating cards found:", len(cards))
+        
+                ratings_debug = await page.evaluate("""
+                () => {
+                    const seasons = ['зима', 'весна', 'літо', 'осінь'];
+                    const result = [];
+                    document.querySelectorAll('span.font-medium').forEach(labelSpan => {
+                        const label = labelSpan.innerText.trim().toLowerCase();
+                        if (seasons.includes(label)) {
+                            const parentDiv = labelSpan.closest('div');
+                            if (!parentDiv) return;
+                            const valueSpan = parentDiv.querySelector('span.block.font-semibold');
+                            const barDiv = parentDiv.querySelector('div[style*="width"]');
+                            const value = valueSpan ? parseInt(valueSpan.innerText.trim()) : null;
+                            const width = barDiv ? parseFloat(barDiv.style.width.replace("%","")) : null;
+                            result.push({label, value, width});
+                        }
+                    });
+                    return result;
+                }
+                """)
+        
+                print("Ratings debug info:", ratings_debug)
+                ratings = {r['label']: r['width'] for r in ratings_debug}
+                if ratings:
+                    season_priority = [
+                        ('осінь', 'Осінні аромати'),
+                        ('літо', 'Літні аромати'),
+                        ('зима', 'Зимові аромати'),
+                        ('весна', 'Весняні аромати')
+                    ]
+                    ratings_over_50 = ", ".join(
+                        full_label for key, full_label in season_priority
+                        if key in ratings and ratings[key] >= 50
+                    )
+                    print("Filtered Ratings:", ratings, flush=True)
+                    if ratings_over_50:
+                        print("Seasons with ≥50% width:", ratings_over_50, flush=True)
+                        data["siezon_425"] = ratings_over_50
+                    else:
+                        errors.append("Не вдалося знайти сезони з шириною ≥50%")
+                else:
+                    errors.append("Не вдалося знайти рейтинги")
+        
+            except Exception as e:
+                print(f"[ERROR] Ratings scrape failed: {e}")
+                errors.append("Не вдалося отримати рейтинги з fragrantica.ua")
+            finally:
+                await context.close()
+        else:
+            errors.append("Не вдалося знайти fragrantica.ua url")
+
+        print(f"product_type: {product_type}")
+            
         if product_type and sex and brand and exact_collection and volume:
             components = [special_mark, product_type, sex, brand, exact_collection, volume]
             name_checkbox = " ".join([comp for comp in components if comp])
@@ -1336,14 +1603,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             for ukr in sorted(UKR_TO_RU.keys(), key=len, reverse=True):
                 text = text.replace(ukr, UKR_TO_RU[ukr])
             return text
-    
-    
-        print(f"FRAGRANTICA{fragrantica_url}", flush=True)
-        if search_name and not fragrantica_url:
-            fragrantica_url = await find_fragrantica_url(browser, search_name, fragrantica_brand, exact_collection, product_type)
-    
-        if fragrantica_url:
-            debug_message.append(f"fragrantica url: {fragrantica_url}")
     
         if name_checkbox:
             print(f"Назва checkbox: {name_checkbox}")
@@ -1557,259 +1816,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             
             except Exception:
                 errors.append("Не вдалося перекласти опис з ua на ru")
-                
-        async def get_fragrantica_page(browser, url: str) -> BeautifulSoup | None:
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
-            )
-            page = await context.new_page()
-            await page.add_init_script(
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-            )
-            await page.route("**/*", lambda route: route.abort()
-                if route.request.resource_type in ["image", "stylesheet", "font", "media", "other"]
-                else route.continue_()
-            )
-            try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                await page.wait_for_selector("#perfume-description-content", timeout=15000)
-                content = await page.content()
-                return BeautifulSoup(content, "html.parser")
-            except Exception as e:
-                print(f"[ERROR] Failed to fetch {url}: {e}")
-                return None
-            finally:
-                await context.close()  # closes page too
-    
-        if fragrantica_url:
-            print(fragrantica_url, flush=True)
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
-                viewport={"width": 1280, "height": 800},
-                device_scale_factor=1,
-                java_script_enabled=True,
-            )
-            page = await context.new_page()
-            try:
-                await page.goto(fragrantica_url, wait_until="domcontentloaded", timeout=60000)
-                await page.wait_for_function("""
-                () => {
-                    const cards = document.querySelectorAll('.tw-rating-card > div');
-                    return cards.length > 0;
-                }""", timeout=30000)
-                await page.wait_for_selector('.tw-rating-card .flex.flex-col', timeout=45000)
-        
-                def parse_number(text):
-                    text = text.lower().replace(',', '').strip()
-                    if 'k' in text:
-                        return int(float(text.replace('k', '')) * 1000)
-                    return int(text)
-        
-                cards = await page.query_selector_all('.tw-rating-card .flex.flex-col')
-                print("Number of rating cards found:", len(cards))
-        
-                ratings_debug = await page.evaluate("""
-                () => {
-                    const seasons = ['зима', 'весна', 'літо', 'осінь'];
-                    const result = [];
-                    document.querySelectorAll('span.font-medium').forEach(labelSpan => {
-                        const label = labelSpan.innerText.trim().toLowerCase();
-                        if (seasons.includes(label)) {
-                            const parentDiv = labelSpan.closest('div');
-                            if (!parentDiv) return;
-                            const valueSpan = parentDiv.querySelector('span.block.font-semibold');
-                            const barDiv = parentDiv.querySelector('div[style*="width"]');
-                            const value = valueSpan ? parseInt(valueSpan.innerText.trim()) : null;
-                            const width = barDiv ? parseFloat(barDiv.style.width.replace("%","")) : null;
-                            result.push({label, value, width});
-                        }
-                    });
-                    return result;
-                }
-                """)
-        
-                print("Ratings debug info:", ratings_debug)
-                ratings = {r['label']: r['width'] for r in ratings_debug}
-                if ratings:
-                    season_priority = [
-                        ('осінь', 'Осінні аромати'),
-                        ('літо', 'Літні аромати'),
-                        ('зима', 'Зимові аромати'),
-                        ('весна', 'Весняні аромати')
-                    ]
-                    ratings_over_50 = ", ".join(
-                        full_label for key, full_label in season_priority
-                        if key in ratings and ratings[key] >= 50
-                    )
-                    print("Filtered Ratings:", ratings, flush=True)
-                    if ratings_over_50:
-                        print("Seasons with ≥50% width:", ratings_over_50, flush=True)
-                        data["siezon_425"] = ratings_over_50
-                    else:
-                        errors.append("Не вдалося знайти сезони з шириною ≥50%")
-                else:
-                    errors.append("Не вдалося знайти рейтинги")
-        
-            except Exception as e:
-                print(f"[ERROR] Ratings scrape failed: {e}")
-                errors.append("Не вдалося отримати рейтинги з fragrantica.ua")
-            finally:
-                await context.close()
-        else:
-            errors.append("Не вдалося знайти fragrantica.ua url")
-        
-        async def fragrantica_scrape(fragrantica_url: str):
-            try:
-                fragrantica_soup = await get_fragrantica_page(browser, fragrantica_url)
-    
-                collection = ""
-                if fragrantica_soup and  fragrantica_soup.find("small", string=re.compile(r"Колекції")):
-                    collection = fragrantica_soup.find("small", string=re.compile(r"Колекції"))
-                description_block = ""
-                if fragrantica_soup and fragrantica_soup.find("div", id="perfume-description-content"):
-                    description_block = fragrantica_soup.find("div", id="perfume-description-content")
-                fragrantica_description = ""
-                accords = []
-                accords_header = ""
-                if fragrantica_soup and fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower()):
-                    accords_header = fragrantica_soup.find("h6", string=lambda x: x and "основні акорди" in x.lower())
-                if fragrantica_soup:
-                    del fragrantica_soup
-            
-                if fragrantica_url:
-                    if collection:
-                        parent = collection.find_parent("h3")
-                        name = parent.get_text(strip=True).replace("Колекції", "").strip()
-                        data["sieriia_491"] = name
-                        #print("Колекції:", name)
-                    else:
-                        print("Колекції not found")
-            
-                    if description_block:
-                        fragrantica_description = description_block.get_text(separator=" ", strip=True)
-                        print(fragrantica_description, flush=True)
-                    else:
-                        errors.append("Не вдалося знайти опис на fragrantica.ua(для нот та типу аромата")
-                        print("Description not found")
-            
-                    def format_notes(desc):
-                        desc = re.sub(r'\s+', ' ', desc).strip()
-                        print("formating", flush=True)
-            
-                        patterns = {
-                            "Верхні ноти": r"(?:верхн(?:і|я)\s+ноти?|початков(?:і|а)\s+ноти?)\s*[:：]?\s*([^\.;]+)",
-                            "Ноти серця": r"(?:нот[аи]?\s+серця|серцев(?:і|а)\s+ноти?)\s*[:：]?\s*([^\.;]+)",
-                            "Базові ноти": r"(?:базов(?:і|а)\s+ноти?|ноти\s+бази)\s*[:：]?\s*([^\.;]+)"
-                        }
-            
-                        formatted_sections = []
-            
-                        for key, pattern in patterns.items():
-                            match = re.search(pattern, desc, re.IGNORECASE)
-                            if match:
-                                print(match.group(1))
-                                notes = match.group(1)
-            
-                                # Remove only leading conjunctions like 'а', 'та', 'і' (not part of note names)
-                                notes = re.sub(r'^(?:а|та|і)\b\s*:?\s*', '', notes, flags=re.IGNORECASE)
-            
-                                notes_list = [
-                                    n.strip().capitalize()
-                                    for n in re.split(r',|\sі\s|\sта\s', notes)
-                                    if n.strip()
-                                ]
-            
-                                formatted_sections.append(f"{key}: {', '.join(notes_list)}.")
-            
-                        return ' '.join(formatted_sections)
-            
-                    required_sections = ["Верхні ноти:", "Ноти серця:", "Базові ноти:"]
-            
-                    def is_valid_notes(text):
-                        return all(section in text for section in required_sections)
-                    
-                    final_notes = ""
-                    if fragrantica_description:
-                        final_notes = format_notes(fragrantica_description)
-                        year = re.search(r'\b(19\d{2}|2\d{3})\b', fragrantica_description)
-                        if year:
-                            data["god_vypuska_270"] = year.group()
-                            print(year.group())
-                        print(f"notes 1:{final_notes}", flush=True)
-                        print(is_valid_notes(final_notes))
-                            
-                    if final_notes:
-                        if is_valid_notes(final_notes):
-                            data["noty_446"] = final_notes
-                        else:
-                            errors.append("У фінальних нотах неправильна структура або їх немає на fragrantica.ua")
-                            print("Notes structure is incomplete1:", final_notes)
-                    else:
-                        errors.append("У фінальних нотах неправильна структура або їх немає на fragrantica.ua")
-                        print("Notes structure is incomplete2:", final_notes)
-            
-                    mapped_aroma_types = []
-                    seen = set()
-            
-                    for aroma_type, terms in AROMA_TYPE_TERMS.items():
-                        for term in terms:
-                            term_lower = term.lower()
-            
-                            # Find full word matches only (avoid partial word issues)
-                            pattern = r'\b' + re.escape(term_lower) + r'\b'
-                        
-                            if re.search(pattern, fragrantica_description):
-            
-                                pattern = r'\b' + re.escape(term_lower) + r'\b(?=[\s\.,;]|$)'
-            
-                                # ❌ Skip if it's followed by "ноти"
-                            if re.search(pattern + r'\s+ноти', fragrantica_description, re.IGNORECASE):
-                                continue
-            
-                            if re.search(pattern, fragrantica_description, re.IGNORECASE):
-                                if aroma_type not in seen:
-                                    mapped_aroma_types.append(aroma_type)
-                                    seen.add(aroma_type)
-            
-                    accords_container = None
-            
-                    if accords_header:
-                        accords_container = accords_header.find_next_sibling("div")
-            
-                    if accords_container:
-                        accords = [
-                            span.get_text(strip=True)
-                            for span in accords_container.find_all("span", class_="truncate")
-                        ]
-            
-                    result_string_accords = ""
-                    if accords:
-                        print(f"accords raw:{accords}")
-            
-                        # Merge description aroma types and accord aroma types
-                        mapped_types = mapped_aroma_types.copy()  # start with description values
-            
-                        for accord in accords:
-                            accord_lower = accord.lower()
-                            for aroma_type, terms in AROMA_TYPE_TERMS.items():
-                                for term in terms:
-                                    if term.lower() in accord_lower:
-                                        if aroma_type not in mapped_types:
-                                            mapped_types.append(aroma_type)
-                                        break
-            
-                        if mapped_types:
-                            # Convert to comma-separated string
-                            result_string_accords = ", ".join(mapped_types)
-                            if result_string_accords:
-                                data["tip_aromata_269"] = result_string_accords
-                            else:
-                                errors.append("Не вдалося визначити аккорди на fragrantica.ua")
-            except Exception as e:
-                print(f"[ERROR] fragrantica_scrape failed: {e}")
-                
-        if fragrantica_url:
-            await fragrantica_scrape(fragrantica_url)
     
         custom_fields_array = [{"name": k, "value": str(v)} for k, v in data.items() if v is not None]
         print(custom_fields_array)

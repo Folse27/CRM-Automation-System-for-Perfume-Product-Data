@@ -1264,10 +1264,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 
         # --- Step 6: Combine components for UA ---
         name_checkbox = ""
-        print(f"special_mark: {special_mark}")
-        print(f"brand: {brand}")
-        print(f"exact_collection: {exact_collection}")
-        print(f"volume: {volume}")
         search_name = ""
         fragrantica_brand = ""
         if brand and exact_collection:
@@ -1299,7 +1295,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             )
             try:
                 await page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                await page.wait_for_selector("#perfume-description-content", timeout=15000)
+                await page.wait_for_selector("#perfume-description-content", timeout=30000)
                 content = await page.content()
                 return BeautifulSoup(content, "html.parser")
             except Exception as e:
@@ -1331,37 +1327,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                             sex = "для жінок"
                         elif "text-teal-600" in classes:
                             sex = "унісекс"
-                        print(f"sex: {sex}")
-                        
-                    if not sex or sex == "":
-                        for s, terms in SEX_TERMS.items():
-                            for term in terms:
-                                t = term.lower()
-                    
-                                if len(t) == 1 and t.isalpha():  # M, L, U
-                                    pattern = rf"\({re.escape(t)}\)"
-                                elif t.isalpha():  # man, woman
-                                    pattern = rf"\b{re.escape(t)}\b"
-                                else:
-                                    pattern = re.escape(t)
-                    
-                                if re.search(pattern, product.lower()):
-                                    sex = s
-                                    break
-                            if sex:
-                                break
-
-                    if sex and product_type:
-                        if product_type == "Парфум":
-                            data["vid_parfiumiernoi_produktsii_271"] = "Парфуми"
-                            if sex in ["для жінок", "унісекс"]:
-                                product_type = "Парфуми"
-                            else:
-                                product_type = "Парфум"
-                        else:
-                            data["vid_parfiumiernoi_produktsii_271"] = product_type
-                    else:
-                        errors.append("Не вдалось визначити поле Вид парфюмерной продукции")
+                        if sex:
+                            print(f"sex from colors: {sex}", flush=True)
                         
                     collection = fragrantica_soup.find("small", string=re.compile(r"Колекції"))
                     description_block = fragrantica_soup.find("div", id="perfume-description-content")
@@ -1374,14 +1341,14 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     data["sieriia_491"] = name
                     #print("Колекції:", name)
                 else:
-                    print("Колекції not found")
+                    print("Колекції not found", flush=True)
         
                 if description_block:
                     fragrantica_description = description_block.get_text(separator=" ", strip=True)
                     print(fragrantica_description, flush=True)
                 else:
                     errors.append("Не вдалося знайти опис на fragrantica.ua(для нот та типу аромата")
-                    print("Description not found")
+                    print("Description not found", flush=True)
         
                 def format_notes(desc):
                     desc = re.sub(r'\s+', ' ', desc).strip()
@@ -1498,6 +1465,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                             errors.append("Не вдалося визначити аккорди на fragrantica.ua")
             except Exception as e:
                 print(f"[ERROR] fragrantica_scrape failed: {e}")
+                
         print(f"FRAGRANTICA{fragrantica_url}", flush=True)
         if search_name and not fragrantica_url:
             fragrantica_url = await find_fragrantica_url(browser, search_name, fragrantica_brand, exact_collection, product_type)
@@ -1581,7 +1549,42 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         else:
             errors.append("Не вдалося знайти fragrantica.ua url")
 
-        print(f"product_type: {product_type}")
+        if not sex or sex == "":
+            for s, terms in SEX_TERMS.items():
+                for term in terms:
+                    t = term.lower()
+        
+                    if len(t) == 1 and t.isalpha():  # M, L, U
+                        pattern = rf"\({re.escape(t)}\)"
+                    elif t.isalpha():  # man, woman
+                        pattern = rf"\b{re.escape(t)}\b"
+                    else:
+                        pattern = re.escape(t)
+        
+                    if re.search(pattern, product.lower()):
+                        sex = s
+                        break
+                if sex:
+                    break
+
+        if sex and product_type:
+            if product_type == "Парфум":
+                data["vid_parfiumiernoi_produktsii_271"] = "Парфуми"
+                if sex in ["для жінок", "унісекс"]:
+                    product_type = "Парфуми"
+                else:
+                    product_type = "Парфум"
+            else:
+                data["vid_parfiumiernoi_produktsii_271"] = product_type
+        else:
+            errors.append("Не вдалось визначити поле Вид парфюмерной продукции")
+
+        print(f"product_type: {product_type}", flush=True)
+        print(f"special_mark: {special_mark}", flush=True)
+        print(f"brand: {brand}", flush=True)
+        print(f"exact_collection: {exact_collection}", flush=True)
+        print(f"volume: {volume}", flush=True)
+        print(f"sex: {sex}", flush=True)
             
         if product_type and sex and brand and exact_collection and volume:
             components = [special_mark, product_type, sex, brand, exact_collection, volume]
@@ -1896,21 +1899,22 @@ def get_material_by_id(identifier):
         return {}  # safe fallback
 
 def find_by_sku(sku):
-    try:
-        resp = requests.get(
-            f"{KEEPIN_BASE}/materials/sku/{sku}",
-            headers=keepin_headers(),
-            params={"material_sku": sku},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        print(resp.json())
-        return resp.json()
+    for candidate in (sku, "0" + sku):
+        try:
+            resp = requests.get(
+                f"{KEEPIN_BASE}/materials/sku/{candidate}",
+                headers=keepin_headers(),
+                params={"material_sku": candidate},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            print(resp.json())
+            return resp.json()
 
-    except requests.RequestException as e:
-        print(f"Not found by SKU {sku}:", e)
-        return []
+        except requests.RequestException as e:
+            print(f"Not found by SKU {candidate}:", e)
 
+    return []
 
 def delete_material(material_id):
     try:

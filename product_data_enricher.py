@@ -1487,7 +1487,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 () => {
                     const cards = document.querySelectorAll('.tw-rating-card > div');
                     return cards.length > 0;
-                }""", timeout=30000)
+                }""", timeout=45000)
                 await page.wait_for_selector('.tw-rating-card .flex.flex-col', timeout=45000)
         
                 def parse_number(text):

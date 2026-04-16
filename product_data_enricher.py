@@ -1739,7 +1739,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         Page text:
         {clean_text}"""
         
-            client = openai.OpenAI()  # uses OPENAI_API_KEY env var
+            client = openai.OpenAI(OPEN_AI_API_KEY)  # uses OPENAI_API_KEY env var
             response = client.chat.completions.create(
                 model="gpt-4o-mini",  # cheap and fast
                 messages=[{"role": "user", "content": prompt}],

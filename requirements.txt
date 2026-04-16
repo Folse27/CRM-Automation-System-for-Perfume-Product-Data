@@ -6,3 +6,4 @@ deep-translator
 python-dotenv
 requests
 psutil
+openai

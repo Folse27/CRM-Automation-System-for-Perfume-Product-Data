@@ -11,6 +11,7 @@ from html import unescape
 from telegram import Bot
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
+import openai
 import psutil
 import sys
 import playwright_stealth
@@ -1709,24 +1710,58 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 del soup_desc
                 data["opisaniie_ru_1469371"] = description_html_ru
     
+        def extract_with_openai(html_content: str, language: str) -> dict:
+            """Extract description, klassifikatsiia, and seriia from page using OpenAI."""
+            
+            # Strip down HTML to reduce tokens
+            temp_soup = BeautifulSoup(html_content, "html.parser")
+            for tag in temp_soup(["script", "style", "nav", "footer", "header"]):
+                tag.decompose()
+            
+            main_content = temp_soup.find("main") or temp_soup.find("body")
+            clean_text = main_content.get_text(separator="\n", strip=True) if main_content else ""
+            clean_text = clean_text[:8000]  # safety trim
+        
+            prompt = f"""You are extracting product data from a makeup store page (language: {language}).
+        
+        From the text below, extract:
+        1. "description" - the product marketing description (NOT ingredients, NOT characteristics like premiere year/brand/volume). 
+           Should be multiple paragraphs of descriptive text about how the product smells/works/feels.
+           Return it as HTML with <p> tags. If not found, return empty string.
+        2. "klassifikatsiia" - the classification value (e.g. "Нішева", "Масова" etc). If not found, return empty string.
+        3. "seriia" - the series/collection name (e.g. "Elysium Pour Homme"). If not found, return empty string.
+        
+        Respond ONLY with valid JSON, no markdown, no explanation:
+        {{"description": "...", "klassifikatsiia": "...", "seriia": "..."}}
+        
+        Page text:
+        {clean_text}"""
+        
+            client = openai.OpenAI()  # uses OPENAI_API_KEY env var
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",  # cheap and fast
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0,
+            )
+            
+            import json
+            raw = response.choices[0].message.content.strip()
+            return json.loads(raw)
+        
+        
         if soup:
             print("soup exists", flush=True)
             container = soup.select_one(".ProductCharacteristics__content")
         
             if container:
                 print("container exists", flush=True)
-        
                 block = container.select_one('[class*="Html__html"]')
         
                 if block:
                     for strong in block.find_all("strong"):
                         label = strong.get_text(strip=True).replace(":", "")
-        
                         value = strong.next_sibling
-                        if value:
-                            value = str(value).strip()
-                        else:
-                            value = ""
+                        value = str(value).strip() if value else ""
         
                         if label == "Класифікація" and not data.get("klassifikatsiia_272"):
                             data["klassifikatsiia_272"] = value
@@ -1734,27 +1769,47 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                         if label == "Серія" and not data.get("sieriia_491"):
                             data["sieriia_491"] = value
         
+            description_html = ""
+            content_blocks = soup.select(".ProductCharacteristics__content")
+        
+            if len(content_blocks) >= 2:
+                desc_container = content_blocks[1]
+                block = desc_container.select_one('[class*="Html__html"]')
+                if block:
+                    text = block.get_text(" ", strip=True)
+                    paragraphs = block.find_all("p")
+                    if paragraphs:  # ingredients block has no <p> tags, description does
+                        description_html = "".join(str(p) for p in paragraphs)
+                    elif len(text) > 300:
+                        description_html = str(block)
+        
+            # --- OpenAI fallback ---
+            missing_desc = not description_html
+            missing_klass = not data.get("klassifikatsiia_272")
+            missing_seria = not data.get("sieriia_491")
+        
+            if missing_desc or missing_klass or missing_seria:
+                print("falling back to OpenAI for UA soup", flush=True)
+                try:
+                    ai_result = extract_with_openai(str(soup), "Ukrainian")
+        
+                    if missing_desc and ai_result.get("description"):
+                        description_html = ai_result["description"]
+        
+                    if missing_klass and ai_result.get("klassifikatsiia"):
+                        data["klassifikatsiia_272"] = ai_result["klassifikatsiia"]
+        
+                    if missing_seria and ai_result.get("seriia"):
+                        data["sieriia_491"] = ai_result["seriia"]
+        
+                except Exception as e:
+                    print(f"OpenAI fallback failed for UA soup: {e}", flush=True)
+        
             if not data.get("klassifikatsiia_272"):
                 errors.append("Не вдалося визначити Класифікацію")
         
             if not data.get("sieriia_491"):
                 errors.append("Не вдалося знайти колекції")
-        
-            description_html = ""
-        
-            content_blocks = soup.select(".ProductCharacteristics__content")
-        
-            if len(content_blocks) >= 1:
-                desc_container = content_blocks[1]
-                block = desc_container.select_one('[class*="Html__html"]')
-                if block:
-                    text = block.get_text(" ", strip=True)
-                    if "Alcohol," not in text and "Parfum" not in text:
-                        paragraphs = block.find_all("p")
-                        if paragraphs:
-                            description_html = "".join(str(p) for p in paragraphs)
-                        elif len(text) > 300:
-                            description_html = str(block)
         
             if not randewoo_url and description_html:
                 print("found description ua", flush=True)
@@ -1762,37 +1817,46 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
         
             del soup
         
+        
         if RU_soup:
             print("ru soup exists", flush=True)
-            RU_container = RU_soup.select_one(".ProductCharacteristics__content")
-            if RU_container and randewoo_url is None or randewoo_url == "":
+        
+            if not randewoo_url:
                 print("finding description ru", flush=True)
                 description_html = ""
         
                 content_blocks = RU_soup.select(".ProductCharacteristics__content")
         
-                if len(content_blocks) >= 1:
+                if len(content_blocks) >= 2:
                     desc_container = content_blocks[1]
                     block = desc_container.select_one('[class*="Html__html"]')
                     if block:
                         text = block.get_text(" ", strip=True)
-                        if "Alcohol," not in text and "Parfum" not in text:
-                            paragraphs = block.find_all("p")
-                            if paragraphs:
-                                description_html = "".join(str(p) for p in paragraphs)
-                            elif len(text) > 300:
-                                description_html = str(block)
+                        paragraphs = block.find_all("p")
+                        if paragraphs:  # ingredients block has no <p> tags, description does
+                            description_html = "".join(str(p) for p in paragraphs)
+                        elif len(text) > 300:
+                            description_html = str(block)
         
-                if not randewoo_url and description_html:
+                # --- OpenAI fallback for RU ---
+                if not description_html:
+                    print("falling back to OpenAI for RU soup", flush=True)
+                    try:
+                        ai_result = extract_with_openai(str(RU_soup), "Russian")
+                        if ai_result.get("description"):
+                            description_html = ai_result["description"]
+                    except Exception as e:
+                        print(f"OpenAI fallback failed for RU soup: {e}", flush=True)
+        
+                if description_html:
                     print("found description ru", flush=True)
                     data["opisaniie_ru_1469371"] = description_html
-                    if not data.get("opisaniie_ua_1469370") or not data["opisaniie_ua_1469370"]:
-                        try:
-                            translated_text = GoogleTranslator(
-                                source='ru',
-                                target='uk'
-                            ).translate(data["opisaniie_ru_1469371"]).strip()
         
+                    if not data.get("opisaniie_ua_1469370"):
+                        try:
+                            translated_text = GoogleTranslator(source='ru', target='uk').translate(
+                                data["opisaniie_ru_1469371"]
+                            ).strip()
                             if translated_text:
                                 data["opisaniie_ua_1469370"] = ''.join(
                                     f'<p>{p.strip()}</p>'
@@ -1801,28 +1865,27 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                                 )
                         except Exception:
                             print("couldn't translate from ru to ua", flush=True)
+        
             del RU_soup
         
-        if not randewoo_url and data.get("opisaniie_ua_1469370") and data["opisaniie_ua_1469370"] and (not data.get("opisaniie_ru_1469371") or not data["opisaniie_ua_1469370"]):
+        
+        if not randewoo_url and data.get("opisaniie_ua_1469370") and not data.get("opisaniie_ru_1469371"):
             try:
-                translated_text = GoogleTranslator(
-                    source='uk',
-                    target='ru'
-                ).translate(data["opisaniie_ua_1469370"]).strip()
-            
+                translated_text = GoogleTranslator(source='uk', target='ru').translate(
+                    data["opisaniie_ua_1469370"]
+                ).strip()
                 if translated_text:
                     data["opisaniie_ru_1469371"] = ''.join(
                         f'<p>{p.strip()}</p>'
                         for p in translated_text.split('\n\n')
                         if p.strip()
                     )
-            
             except Exception:
                 print("couldn't translate from ua to ru", flush=True)
-
+        
         if not data.get("opisaniie_ua_1469370"):
             errors.append("Не вдалося заповнити ua опис")
-
+        
         if not data.get("opisaniie_ru_1469371"):
             errors.append("Не вдалося заповнити ru опис")
     

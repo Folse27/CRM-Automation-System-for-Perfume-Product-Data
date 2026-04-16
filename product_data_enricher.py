@@ -591,6 +591,7 @@ FRAGRANTICA_BRANDS = {
     "Mercedes Benz": "Mercedes-Benz",
     "Paco Rabanne": " Rabanne",
     "27 87 Perfumes": "27 87",
+    "Roja": "Roja Dove",
 }
 
 MAKEUP_BRANDS = {

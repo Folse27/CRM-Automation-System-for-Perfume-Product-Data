@@ -1656,7 +1656,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 else route.continue_()
             )
             try:
-                await page.goto(url, timeout=20000)
+                await page.goto(RU_url, timeout=20000)
                 await asyncio.sleep(5)
                 html_content = await page.content()
                 RU_soup = BeautifulSoup(html_content, "html.parser")

@@ -1493,7 +1493,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 
         if fragrantica_url:
             debug_message.append(f"fragrantica url: {fragrantica_url}")
-            await sex = fragrantica_scrape(fragrantica_url)
+            sex = await fragrantica_scrape(fragrantica_url)
             print(fragrantica_url, flush=True)
             context = await browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",

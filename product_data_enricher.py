@@ -622,6 +622,11 @@ UKR_TO_RU = {
     "унісекс": "унисекс",
 }
 
+BROKEN_KEYWORDS = [
+    "примятые", "подтекает", "брак целлофана", "затертые",
+    "брак упаковки", "недолив", "след от стикера"
+]
+
 #CATEGORY_NAMES = {
     #"366": "Прайс1 додано в 2",
     #"365": "Прайс2 додано в 1",
@@ -2052,11 +2057,18 @@ def process(mode):
     if mode == "1":
         CATEGORY_SOURCE = ["389934", "1496143", "1496142", "683545"]
         CATEGORY_HIGHER_PRICE = "366"
+        CATEGORY_BROKEN = "379"
+        CATEGORY_TESTER = "405"
+        CATEGORY_TRIAL = "380"
+        CATEGORY_PACK = "406"
         NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY = "294"
         FINAL_CATEGORY_MAP = {352: 339, 381: 274}
     elif mode == "2":
         CATEGORY_SOURCE = ["389935", "1338735", "1338734", "683544"]
         CATEGORY_HIGHER_PRICE = "365"
+        CATEGORY_BROKEN = "382"
+        CATEGORY_TESTER = "397"
+        CATEGORY_TRIAL = "395"
         NOT_FOUND_AND_NOT_PERSISTENT_CATEGORY = "383"
         FINAL_CATEGORY_MAP = {339: 352, 274: 381}
     else:
@@ -2170,6 +2182,62 @@ def process(mode):
         if update_data and final_id and update_data != "":
             print("Run finished", flush=True)
             keepin_response = update_material(update_data, final_id)
+
+    material_data2 = get_materials(CATEGORY_SOURCE)
+    materials_list2 = material_data2.get("items", [])
+
+    for mat in materials_list2:
+        title = mat.get("title", "").lower()
+        material_id = mat.get("id")
+        original_category = mat.get("category_id")
+        print(f"title: {title}", flush=True)
+        print(f"material_id: {material_id}", flush=True)
+        print(f"category_id: {original_category}", flush=True)
+    
+        # Rule 1 is PRIORITY — check broken keywords first
+        if mode == "1":
+            if any(keyword in title for keyword in BROKEN_KEYWORDS):
+                final_category = CATEGORY_BROKEN
+            elif "tester" in title:
+                final_category = CATEGORY_TESTER
+            elif "vial" in title:
+                final_category = CATEGORY_TRIAL
+            elif "set" in title:
+                final_category = CATEGORY_PACK
+            else:
+                final_category = None  # No match, skip
+        
+            if final_category and final_category != original_category:
+                print(f"Moving '{title}' → category {final_category}", flush=True)
+                update_data = {"category_id": final_category}
+                keepin_response = update_material(update_data, material_id)
+            else:
+                if not final_category:
+                    print(f"No matching rule for '{title}', mode 1, skipping.", flush=True)
+
+            print("Run finished moved after set rules", flush=True)
+        elif mode == "2":
+            BROKEN_KEYWORDS_2 = ["прим'яті", "прим'ятий", "без целофану"]
+
+            # Rule 1 is PRIORITY
+            if any(keyword in title for keyword in BROKEN_KEYWORDS_2):
+                final_category = CATEGORY_BROKEN
+            elif "тестер" in title:  # covers both "ТЕСТЕР" and "ТЕСТЕР без коробки"
+                final_category = CATEGORY_TESTER
+            elif "віалка" in title:
+                final_category = CATEGORY_TRIAL
+            else:
+                final_category = None
+        
+            if final_category and final_category != original_category:
+                print(f"Moving '{title}' → category {final_category}", flush=True)
+                update_data = {"category_id": final_category}
+                keepin_response = update_material(update_data, material_id)
+            else:
+                if not final_category:
+                    print(f"No matching rule for '{title}', mode 2, skipping.", flush=True)
+            print("Run finished moved after set rules", flush=True)
+
 
 async def run_main(title, price, sku, identifier, target_id, makeup_url, fragrantica_url, randewoo_url):
     monitor_task = asyncio.create_task(monitor_memory())

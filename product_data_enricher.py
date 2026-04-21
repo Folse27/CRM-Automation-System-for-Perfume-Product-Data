@@ -1301,17 +1301,26 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             )
             try:
                 await page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                await page.wait_for_selector("#perfume-description-content", timeout=30000)
+                try:
+                    await page.wait_for_selector("#perfume-description-content", timeout=30000)
+                except Exception:
+                    content = await page.content()
+                    if len(content) < 500:
+                        print(f"[WARN] Page too short, likely failed to load: {url}", flush=True)
+                        return None
+                    print(f"[WARN] No description block found, parsing partial page: {url}", flush=True)
+                
                 content = await page.content()
                 return BeautifulSoup(content, "html.parser")
             except Exception as e:
-                print(f"[ERROR] Failed to fetch {url}: {e}")
+                print(f"[ERROR] Failed to fetch {url}: {e}", flush=True)
                 return None
             finally:
-                await context.close()  # closes page too
+                await context.close()
         
         async def fragrantica_scrape(fragrantica_url: str):
             try:
+                sex = ""
                 fragrantica_soup = await get_fragrantica_page(browser, fragrantica_url)
     
                 collection = ""
@@ -1469,6 +1478,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                             data["tip_aromata_269"] = result_string_accords
                         else:
                             errors.append("Не вдалося визначити аккорди на fragrantica.ua")
+                    return sex
             except Exception as e:
                 print(f"[ERROR] fragrantica_scrape failed: {e}")
                 
@@ -1478,7 +1488,7 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 
         if fragrantica_url:
             debug_message.append(f"fragrantica url: {fragrantica_url}")
-            await fragrantica_scrape(fragrantica_url)
+            await sex = fragrantica_scrape(fragrantica_url)
             print(fragrantica_url, flush=True)
             context = await browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
@@ -1489,12 +1499,20 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
             page = await context.new_page()
             try:
                 await page.goto(fragrantica_url, wait_until="domcontentloaded", timeout=60000)
-                await page.wait_for_function("""
-                () => {
-                    const cards = document.querySelectorAll('.tw-rating-card > div');
-                    return cards.length > 0;
-                }""", timeout=45000)
-                await page.wait_for_selector('.tw-rating-card .flex.flex-col', timeout=45000)
+                try:
+                    await page.wait_for_function("""
+                        () => {
+                            const cards = document.querySelectorAll('.tw-rating-card > div');
+                            return cards.length > 0;
+                        }""", timeout=45000)
+                    await page.wait_for_selector('.tw-rating-card .flex.flex-col', timeout=45000)
+                except Exception:
+                    cards = await page.query_selector_all('.tw-rating-card > div')
+                    if not cards:
+                        print(f"No rating cards found for {fragrantica_url}, skipping", flush=True)
+                        errors.append("Не вдалося отримати рейтинги з fragrantica.ua")
+                        return None  # or [], {} — whatever your function returns on failure
+                    # cards exist but selector timed out — continue anyway
         
                 def parse_number(text):
                     text = text.lower().replace(',', '').strip()

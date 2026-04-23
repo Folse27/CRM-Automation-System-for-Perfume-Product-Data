@@ -77,9 +77,9 @@ SPECIAL_MARK_TERMS = {
 }
 
 SEX_TERMS = {
-    "для чоловіків": ["чол", "чол.,", "M", "(M)", "man"],
-    "для жінок": ["жін", "жін.,", "L", "(L)", "woman"],
-    "унісекс": ["унів", "унів.,", "U", "(U)", "unisex", "L/M", "(L/M)", "M/L", "(M/L)", "L\\M", "(L\\M)", "M\\L", "(M\\L)"],
+    "для чоловіків": ["чол", "чол.,", "M", "(M)"],
+    "для жінок": ["жін", "жін.,", "L", "(L)"],
+    "унісекс": ["унів", "унів.,", "U", "(U)", "L/M", "(L/M)", "M/L", "(M/L)", "L\\M", "(L\\M)", "M\\L", "(M\\L)"],
 }
 
 AROMA_TYPE_TERMS = {
@@ -1516,8 +1516,6 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                     if not cards:
                         print(f"No rating cards found for {fragrantica_url}, skipping", flush=True)
                         errors.append("Не вдалося отримати рейтинги з fragrantica.ua")
-                        return None  # or [], {} — whatever your function returns on failure
-                    # cards exist but selector timed out — continue anyway
         
                 def parse_number(text):
                     text = text.lower().replace(',', '').strip()

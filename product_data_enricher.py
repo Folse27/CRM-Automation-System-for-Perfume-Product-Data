@@ -592,6 +592,7 @@ FRAGRANTICA_BRANDS = {
     "Paco Rabanne": " Rabanne",
     "27 87 Perfumes": "27 87",
     "Roja": "Roja Dove",
+    "The Gate Fragrances": "The Gate Fragrances Paris"
 }
 
 MAKEUP_BRANDS = {
@@ -956,6 +957,11 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                 errors.append("\nНе вдалося знайти бренд(можливо його не було взагалі)")
     
             return cleaned_name, brand_found
+
+        async def debug_all(request):
+            if "algolia" in request.url.lower():
+                print("ALGOLIA REQUEST:", request.url)
+                print("HEADERS:", request.headers)
     
         async def get_algolia_key(browser) -> dict | None:
             result = {}
@@ -984,6 +990,8 @@ async def main_func(browser, product, price, sku, identifier, category_id, makeu
                         result["api_key"] = api_key
                         result["app_id"] = app_id
                         got_key.set()
+
+            page.on("request", debug_all)
         
             page.on("response", handle_response)
             goto_task = asyncio.ensure_future(

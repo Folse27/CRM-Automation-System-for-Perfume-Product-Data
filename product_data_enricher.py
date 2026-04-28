@@ -145,6 +145,7 @@ PERFUME_BRANDS = {
     "Anna Sui": [],
     "Ariana Grande": [],
     "Armaf": [],
+    "Aramis": [],
     "Armand Basi": [],
     "Atelier Cologne": [],
     "Atkinsons": [],
